@@ -1,0 +1,38 @@
+# Git y entorno local
+.git
+.gitignore
+**/.git
+
+# Secretos (se inyectan con env_file en compose)
+.env
+frontend/.env
+**/.env
+**/.env.*
+
+# Python
+venv/
+.venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Frontend (imagen aparte)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE y logs
+.cursor/
+.vscode/
+**/*.log
+terminals/
+
+# Documentación y datos locales
+*.md
+db.txt
+agent-transcripts/

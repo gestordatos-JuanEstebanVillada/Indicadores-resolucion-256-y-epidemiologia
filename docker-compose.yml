@@ -1,0 +1,50 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: indicadores-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      SCSE_DB_USER: ${SCSE_DB_USER}
+      SCSE_DB_PASSWD: ${SCSE_DB_PASSWD}
+      SCSE_DB_IP: ${SCSE_DB_IP}
+      SCSE_DB_PORT: ${SCSE_DB_PORT:-1521}
+      SCSE_DB_DATABASE: ${SCSE_DB_DATABASE}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_TABLEAU_CLIENT_ID: ${VITE_TABLEAU_CLIENT_ID:-}
+        VITE_TABLEAU_SECRET_ID: ${VITE_TABLEAU_SECRET_ID:-}
+        VITE_TABLEAU_SECRET_VALUE: ${VITE_TABLEAU_SECRET_VALUE:-}
+        VITE_TABLEAU_USERNAME: ${VITE_TABLEAU_USERNAME:-}
+    container_name: indicadores-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+# Oracle vive fuera del compose (SCSE_DB_* en .env).
+# El frontend llama al API en http://127.0.0.1:8000 desde el navegador;
+# asegúrate de que CORS en app/core/config.py incluya http://localhost:5173.
