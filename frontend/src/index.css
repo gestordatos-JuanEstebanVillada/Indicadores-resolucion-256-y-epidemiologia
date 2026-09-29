@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+
+/* custom small visual tweaks for the pink theme */
+.blur-3xl { filter: blur(48px); }
+.rounded-3xl { border-radius: 28px; }
+.bg-pink-50 { background-color: #fff7fb; }
+.bg-pink-200 { background-color: #fecdd3; }
+.bg-pink-300 { background-color: #fda4af; }
+.text-pink-600 { color: #e11d48; }
+.border-pink-200 { border-color: #fecdd3; }

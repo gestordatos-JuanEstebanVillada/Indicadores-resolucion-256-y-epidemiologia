@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+alembic
+oracledb
+python-dotenv
+pydantic-settings
+openpyxl
+python-jose[cryptography]
