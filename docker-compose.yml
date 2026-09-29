@@ -6,7 +6,7 @@ services:
     image: indicadores-backend:local
     container_name: indicadores-backend
     ports:
-      - "8007:8000"
+      - "${BACKEND_HOST_PORT:-8007}:8007"
     env_file:
       - .env
     environment:
@@ -22,7 +22,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/health', timeout=5)",
         ]
       interval: 30s
       timeout: 10s
@@ -42,18 +42,19 @@ services:
     image: indicadores-frontend:local
     container_name: indicadores-frontend
     ports:
-      - "5173:80"
+      - "${FRONTEND_HOST_PORT:-5173}:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
 
-# API publicada en el host: http://<servidor>:8007  (contenedor escucha 8000)
-# Frontend: http://<servidor>:5173
+# API: http://<servidor>:8007/health  (NO usa el puerto 8000 en el host)
+# Frontend: http://<servidor>:5173  (cambiar FRONTEND_HOST_PORT si 5173 está ocupado)
 #
-# En el servidor Linux, define en .env la IP/host real del backend, por ejemplo:
-#   VITE_API_ORIGIN=http://160.2.1.80:8007
+# Tras actualizar este archivo en el servidor:
+#   docker compose down --remove-orphans
+#   docker rm -f indicadores-backend indicadores-frontend 2>/dev/null || true
+#   docker compose up -d --build
 #
-# Si falla el build con "lookup auth.docker.io ... i/o timeout", el VM no llega a
-# Docker Hub (DNS/firewall). Prueba: ping auth.docker.io, DNS 8.8.8.8, o importar
-# imágenes con docker load desde otra máquina con internet.
+# Si aún ves "Bind for 0.0.0.0:8000", hay un docker-compose.override.yml viejo
+# o otro contenedor:  docker ps --format '{{.Names}} {{.Ports}}' | grep 8000
