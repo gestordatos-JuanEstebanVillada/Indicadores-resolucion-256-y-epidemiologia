@@ -3,9 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: indicadores-backend:local
     container_name: indicadores-backend
     ports:
-      - "8000:8000"
+      - "8007:8000"
     env_file:
       - .env
     environment:
@@ -33,10 +34,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-http://127.0.0.1:8007}
         VITE_TABLEAU_CLIENT_ID: ${VITE_TABLEAU_CLIENT_ID:-}
         VITE_TABLEAU_SECRET_ID: ${VITE_TABLEAU_SECRET_ID:-}
         VITE_TABLEAU_SECRET_VALUE: ${VITE_TABLEAU_SECRET_VALUE:-}
         VITE_TABLEAU_USERNAME: ${VITE_TABLEAU_USERNAME:-}
+    image: indicadores-frontend:local
     container_name: indicadores-frontend
     ports:
       - "5173:80"
@@ -45,6 +48,12 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-# Oracle vive fuera del compose (SCSE_DB_* en .env).
-# El frontend llama al API en http://127.0.0.1:8000 desde el navegador;
-# asegúrate de que CORS en app/core/config.py incluya http://localhost:5173.
+# API publicada en el host: http://<servidor>:8007  (contenedor escucha 8000)
+# Frontend: http://<servidor>:5173
+#
+# En el servidor Linux, define en .env la IP/host real del backend, por ejemplo:
+#   VITE_API_ORIGIN=http://160.2.1.80:8007
+#
+# Si falla el build con "lookup auth.docker.io ... i/o timeout", el VM no llega a
+# Docker Hub (DNS/firewall). Prueba: ping auth.docker.io, DNS 8.8.8.8, o importar
+# imágenes con docker load desde otra máquina con internet.

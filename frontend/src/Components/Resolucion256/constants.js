@@ -1,4 +1,4 @@
-export const API_URL = "http://127.0.0.1:8000";
+export { API_ORIGIN as API_URL } from "../../config/api";
 
 export const months = [
   { id: 1, name: "ENERO" },

@@ -143,7 +143,7 @@ import {
 } from "../../utils/formatIndicator";
 import { MODULO_EPIDEMIOLOGIA } from "../../utils/moduleConstants";
 
-const API_URL = "http://127.0.0.1:8000/api";
+import { API_URL } from "../../config/api";
 
 export default function IaasIndicadoresCharts() {
   const [versions, setVersions] = useState([]);
