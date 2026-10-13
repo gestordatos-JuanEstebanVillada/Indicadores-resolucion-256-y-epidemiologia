@@ -11,6 +11,7 @@ import IaasForm from "./IaasForm";
 import IaasIndicadores from "./IaasIndicadores";
 import IaasIndicadoresCharts from "./IaasIndicadoresCharts";
 import TableauView from "./Components/TableauView/TableauView";
+import { logoLiga50 } from "./assets/images.js";
 
 export default function App() {
   return (
@@ -48,8 +49,8 @@ export default function App() {
                 <div className="p-8 text-center">
 
                   <img
-                    src="/src/IMG/logo-liga-50.png"
-                    alt="Logo"
+                    src={logoLiga50}
+                    alt="Logo Liga Contra el Cáncer"
                     className="mx-auto w-100 h-auto"
                   />
 

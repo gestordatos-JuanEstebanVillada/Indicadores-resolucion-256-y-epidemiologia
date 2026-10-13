@@ -1,4 +1,7 @@
-export const API_URL = "http://127.0.0.1:8000";
+import { API_ORIGIN } from "../../config/api.js";
+
+/** Base del backend sin sufijo /api (formularios usan `${API_URL}/api/...`). */
+export const API_URL = API_ORIGIN;
 
 export const months = [
   { id: 1, name: "ENERO" },

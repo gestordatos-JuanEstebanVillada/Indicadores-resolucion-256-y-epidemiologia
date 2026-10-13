@@ -12,8 +12,7 @@ import {
   MODULO_RESOLUCION_256,
   normalizeObservatorioForPayload,
 } from "./utils/moduleConstants";
-
-const API_URL = "http://127.0.0.1:8000/api";
+import { API_URL } from "./config/api.js";
 
 const months = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

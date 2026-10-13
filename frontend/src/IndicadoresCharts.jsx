@@ -20,6 +20,7 @@ import {
   toChartIndicatorDisplayValue,
 } from "./utils/formatIndicator";
 import { MODULO_RESOLUCION_256 } from "./utils/moduleConstants";
+import { API_URL } from "./config/api.js";
 
 ChartJS.register(
   CategoryScale,
@@ -32,8 +33,6 @@ ChartJS.register(
   Legend,
   Filler
 );
-
-const API_URL = "http://127.0.0.1:8000/api";
 
 const MONTH_LABELS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

@@ -14,6 +14,8 @@ import {
   Hospital,
 } from "lucide-react";
 
+import { logoLiga50 } from "./assets/images.js";
+
 const items = [
   {
     name: "Dashboard",
@@ -129,8 +131,8 @@ export default function Sidebar() {
           <div className="flex items-center gap-3">
             <div className="p-8 text-center">
               <img
-                src="/src/IMG/logo-liga-50.png"
-                alt="Logo"
+                src={logoLiga50}
+                alt="Logo Liga Contra el Cáncer"
                 className="mx-auto w-100 h-auto"
               />
             </div>

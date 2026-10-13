@@ -3,12 +3,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: indicadores-backend:local
     container_name: indicadores-backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_HOST_PORT:-8008}:${BACKEND_CONTAINER_PORT:-8008}"
     env_file:
       - .env
+      - frontend/.env
     environment:
+      BACKEND_PORT: ${BACKEND_CONTAINER_PORT:-8008}
       SCSE_DB_USER: ${SCSE_DB_USER}
       SCSE_DB_PASSWD: ${SCSE_DB_PASSWD}
       SCSE_DB_IP: ${SCSE_DB_IP}
@@ -21,7 +24,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/health', timeout=5)",
         ]
       interval: 30s
       timeout: 10s
@@ -33,18 +36,23 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_TABLEAU_CLIENT_ID: ${VITE_TABLEAU_CLIENT_ID:-}
-        VITE_TABLEAU_SECRET_ID: ${VITE_TABLEAU_SECRET_ID:-}
-        VITE_TABLEAU_SECRET_VALUE: ${VITE_TABLEAU_SECRET_VALUE:-}
-        VITE_TABLEAU_USERNAME: ${VITE_TABLEAU_USERNAME:-}
+        # Vacío = peticiones relativas (/api) vía nginx al servicio backend
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-}
+    image: indicadores-frontend:local
     container_name: indicadores-frontend
     ports:
-      - "5173:80"
+      - "${FRONTEND_HOST_PORT:-5180}:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
 
-# Oracle vive fuera del compose (SCSE_DB_* en .env).
-# El frontend llama al API en http://127.0.0.1:8000 desde el navegador;
-# asegúrate de que CORS en app/core/config.py incluya http://localhost:5173.
+# Acceso: http://<IP-del-servidor>:5180 (frontend). API en el mismo origen (/api).
+# API directa (opcional): http://<IP>:8008/docs
+#
+# Variables opcionales en .env:
+#   FRONTEND_HOST_PORT=5180
+#   BACKEND_HOST_PORT=8008
+#   BACKEND_CONTAINER_PORT=8008
+# Solo si desarrollas el front fuera de Docker contra un API en otra URL:
+#   VITE_API_ORIGIN=http://160.2.1.22:8008

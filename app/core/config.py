@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -7,7 +8,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=BASE_DIR / ".env",
+        env_file=(
+            BASE_DIR / ".env",
+            BASE_DIR / "frontend" / ".env",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -28,6 +32,9 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5175",
         "http://160.2.1.80:3000",
         "http://160.2.1.80:5175",
+        "http://160.2.1.22:5180",
+        "http://localhost:5180",
+        "http://127.0.0.1:5180",
     ]
 
     scse_db_user: str = ""
@@ -35,6 +42,25 @@ class Settings(BaseSettings):
     scse_db_ip: str = "localhost"
     scse_db_port: int = 1521
     scse_db_database: str = ""
+
+    tableau_client_id: str = Field(
+        default="",
+        validation_alias=AliasChoices("TABLEAU_CLIENT_ID", "VITE_TABLEAU_CLIENT_ID"),
+    )
+    tableau_secret_id: str = Field(
+        default="",
+        validation_alias=AliasChoices("TABLEAU_SECRET_ID", "VITE_TABLEAU_SECRET_ID"),
+    )
+    tableau_secret_value: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "TABLEAU_SECRET_VALUE", "VITE_TABLEAU_SECRET_VALUE"
+        ),
+    )
+    tableau_username: str = Field(
+        default="",
+        validation_alias=AliasChoices("TABLEAU_USERNAME", "VITE_TABLEAU_USERNAME"),
+    )
 
     @property
     def database_url(self) -> str:
