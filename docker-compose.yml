@@ -5,8 +5,9 @@ services:
       dockerfile: Dockerfile
     image: indicadores-backend:local
     container_name: indicadores-backend
+    # Host:contenedor — el proceso uvicorn escucha 8007 DENTRO del contenedor
     ports:
-      - "${BACKEND_HOST_PORT:-8007}:8007"
+      - "${BACKEND_HOST_PORT:-8008}:8007"
     env_file:
       - .env
     environment:
@@ -34,7 +35,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-http://127.0.0.1:8007}
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-http://127.0.0.1:8008}
         VITE_TABLEAU_CLIENT_ID: ${VITE_TABLEAU_CLIENT_ID:-}
         VITE_TABLEAU_SECRET_ID: ${VITE_TABLEAU_SECRET_ID:-}
         VITE_TABLEAU_SECRET_VALUE: ${VITE_TABLEAU_SECRET_VALUE:-}
@@ -42,19 +43,19 @@ services:
     image: indicadores-frontend:local
     container_name: indicadores-frontend
     ports:
-      - "${FRONTEND_HOST_PORT:-5173}:80"
+      - "${FRONTEND_HOST_PORT:-5180}:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
 
-# API: http://<servidor>:8007/health  (NO usa el puerto 8000 en el host)
-# Frontend: http://<servidor>:5173  (cambiar FRONTEND_HOST_PORT si 5173 está ocupado)
+# Puertos ocupados en el VM (ej.): 8000, 8002, 8004, 8007, 5173, 5174, 5175, 9443.
+# Defaults: API host 8008, frontend host 5180. Libre en .env: FRONTEND_HOST_PORT=5181
+# Comprobar libres:  ss -tln | grep -E ':(517|800|808)'
 #
-# Tras actualizar este archivo en el servidor:
-#   docker compose down --remove-orphans
-#   docker rm -f indicadores-backend indicadores-frontend 2>/dev/null || true
-#   docker compose up -d --build
+# ¿Quieres el API en 8007 en el host? Ese puerto suele ser indicadores-backend viejo:
+#   docker stop indicadores-backend && docker rm indicadores-backend
+#   En .env: BACKEND_HOST_PORT=8007 y VITE_API_ORIGIN=http://<IP>:8007
+#   docker compose build --no-cache frontend && docker compose up -d
 #
-# Si aún ves "Bind for 0.0.0.0:8000", hay un docker-compose.override.yml viejo
-# o otro contenedor:  docker ps --format '{{.Names}} {{.Ports}}' | grep 8000
+# VITE_API_ORIGIN debe coincidir con BACKEND_HOST_PORT (IP del VM + puerto host).
