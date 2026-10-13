@@ -5,12 +5,13 @@ services:
       dockerfile: Dockerfile
     image: indicadores-backend:local
     container_name: indicadores-backend
-    # Host:contenedor — el proceso uvicorn escucha 8007 DENTRO del contenedor
     ports:
-      - "${BACKEND_HOST_PORT:-8008}:8007"
+      - "${BACKEND_HOST_PORT:-8008}:${BACKEND_CONTAINER_PORT:-8008}"
     env_file:
       - .env
+      - frontend/.env
     environment:
+      BACKEND_PORT: ${BACKEND_CONTAINER_PORT:-8008}
       SCSE_DB_USER: ${SCSE_DB_USER}
       SCSE_DB_PASSWD: ${SCSE_DB_PASSWD}
       SCSE_DB_IP: ${SCSE_DB_IP}
@@ -23,7 +24,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/health', timeout=5)",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/health', timeout=5)",
         ]
       interval: 30s
       timeout: 10s
@@ -35,11 +36,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-http://127.0.0.1:8008}
-        VITE_TABLEAU_CLIENT_ID: ${VITE_TABLEAU_CLIENT_ID:-}
-        VITE_TABLEAU_SECRET_ID: ${VITE_TABLEAU_SECRET_ID:-}
-        VITE_TABLEAU_SECRET_VALUE: ${VITE_TABLEAU_SECRET_VALUE:-}
-        VITE_TABLEAU_USERNAME: ${VITE_TABLEAU_USERNAME:-}
+        # Vacío = peticiones relativas (/api) vía nginx al servicio backend
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:-}
     image: indicadores-frontend:local
     container_name: indicadores-frontend
     ports:
@@ -49,13 +47,12 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-# Puertos ocupados en el VM (ej.): 8000, 8002, 8004, 8007, 5173, 5174, 5175, 9443.
-# Defaults: API host 8008, frontend host 5180. Libre en .env: FRONTEND_HOST_PORT=5181
-# Comprobar libres:  ss -tln | grep -E ':(517|800|808)'
+# Acceso: http://<IP-del-servidor>:5180 (frontend). API en el mismo origen (/api).
+# API directa (opcional): http://<IP>:8008/docs
 #
-# ¿Quieres el API en 8007 en el host? Ese puerto suele ser indicadores-backend viejo:
-#   docker stop indicadores-backend && docker rm indicadores-backend
-#   En .env: BACKEND_HOST_PORT=8007 y VITE_API_ORIGIN=http://<IP>:8007
-#   docker compose build --no-cache frontend && docker compose up -d
-#
-# VITE_API_ORIGIN debe coincidir con BACKEND_HOST_PORT (IP del VM + puerto host).
+# Variables opcionales en .env:
+#   FRONTEND_HOST_PORT=5180
+#   BACKEND_HOST_PORT=8008
+#   BACKEND_CONTAINER_PORT=8008
+# Solo si desarrollas el front fuera de Docker contra un API en otra URL:
+#   VITE_API_ORIGIN=http://160.2.1.22:8008

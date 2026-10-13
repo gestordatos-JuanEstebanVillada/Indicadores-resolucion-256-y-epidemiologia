@@ -9,7 +9,7 @@ COPY . .
 
 # Variables Vite (Tableau, etc.) — pasar en build si las necesitas:
 # docker compose build --build-arg VITE_TABLEAU_CLIENT_ID=...
-ARG VITE_API_ORIGIN=http://127.0.0.1:8008
+ARG VITE_API_ORIGIN=
 ARG VITE_TABLEAU_CLIENT_ID=
 ARG VITE_TABLEAU_SECRET_ID=
 ARG VITE_TABLEAU_SECRET_VALUE=

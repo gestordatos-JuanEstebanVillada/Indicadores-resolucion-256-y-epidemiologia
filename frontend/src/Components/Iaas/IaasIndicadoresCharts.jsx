@@ -142,8 +142,7 @@ import {
   toChartIndicatorDisplayValue,
 } from "../../utils/formatIndicator";
 import { MODULO_EPIDEMIOLOGIA } from "../../utils/moduleConstants";
-
-import { API_URL } from "../../config/api";
+import { API_URL } from "../../config/api.js";
 
 export default function IaasIndicadoresCharts() {
   const [versions, setVersions] = useState([]);

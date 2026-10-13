@@ -13,8 +13,7 @@ import {
   MODULO_EPIDEMIOLOGIA,
   normalizeObservatorioForPayload,
 } from "./utils/moduleConstants";
-
-import { API_URL } from "./config/api";
+import { API_URL } from "./config/api.js";
 
 const months = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",

@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
@@ -13,6 +13,8 @@ COPY app ./app
 COPY main.py .
 COPY alembic.ini ./
 
-EXPOSE 8007
+ENV BACKEND_PORT=8008
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8007"]
+EXPOSE 8008
+
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${BACKEND_PORT}"]
