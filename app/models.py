@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, String
+from datetime import date
+
+from sqlalchemy import Date, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import DateTime, Numeric
 from sqlalchemy.sql import func
@@ -89,6 +91,28 @@ class IntranetCalidadVersion(Base):
     modulo: Mapped[str | None] = mapped_column(String(50))
     mes_inicio: Mapped[int] = mapped_column(Integer, nullable=False)
     mes_fin: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
+    created_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class IntranetPlanMejora(Base):
+    __tablename__ = "INTRANET_PLANES_MEJORA"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    calidad_id: Mapped[int] = mapped_column(
+        ForeignKey("INTRANET_CALIDAD.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    modulo: Mapped[str] = mapped_column(String(50), nullable=False)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    mes: Mapped[int] = mapped_column(Integer, nullable=False)
+    valor_obtenido: Mapped[float | None] = mapped_column(Numeric(18, 6))
+    meta_institucional: Mapped[str | None] = mapped_column(String(4000))
+    observaciones: Mapped[str] = mapped_column(Text, nullable=False)
+    responsable_nombre: Mapped[str] = mapped_column(String(250), nullable=False)
+    responsable_correo: Mapped[str] = mapped_column(String(250), nullable=False)
+    fecha_cumplimiento: Mapped[date] = mapped_column(Date, nullable=False)
+    estado: Mapped[str | None] = mapped_column(String(50), default="PENDIENTE")
     created_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

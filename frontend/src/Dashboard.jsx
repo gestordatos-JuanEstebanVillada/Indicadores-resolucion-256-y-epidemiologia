@@ -1,6 +1,7 @@
 import React from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import NotificationBell from "./Components/Notifications/NotificationBell";
 import TableauEmbed from "./Components/TableauEmbed";
 
 export default function Dashboard() {
@@ -21,6 +22,10 @@ export default function Dashboard() {
       return "Reportes";
     }
 
+    if (location.pathname.includes("planes-mejora")) {
+      return "Planes de mejora";
+    }
+
     if (location.pathname.includes("indicadores")) {
       return "Indicadores";
     }
@@ -36,7 +41,7 @@ export default function Dashboard() {
       <main className="flex-1 min-w-0">
 
         {/* HEADER */}
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center px-8">
+        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8">
 
           <div>
             <h1 className="text-xl font-semibold text-gray-800">
@@ -47,6 +52,8 @@ export default function Dashboard() {
               Gestión de indicadores de calidad
             </p>
           </div>
+
+          <NotificationBell />
 
         </header>
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -141,15 +142,41 @@ import {
   resolveIndicatorValue,
   toChartIndicatorDisplayValue,
 } from "../../utils/formatIndicator";
+import IncidenciasIndicadorBadge from "../IncidenciasIndicadorBadge";
+import { API_URL, apiFetch } from "../../config/api.js";
+import { INCUMPLIMIENTOS_REFRESH_EVENT } from "../../utils/incumplimientosEvents";
 import { MODULO_EPIDEMIOLOGIA } from "../../utils/moduleConstants";
-import { API_URL } from "../../config/api.js";
 
 export default function IaasIndicadoresCharts() {
+  const location = useLocation();
   const [versions, setVersions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedKey, setSelectedKey] = useState("");
   const [selectedBarYear, setSelectedBarYear] = useState("");
+  const [incidencias, setIncidencias] = useState([]);
+
+  useEffect(() => {
+    async function loadIncidencias() {
+      try {
+        const response = await apiFetch(
+          `${API_URL}/notificaciones/incumplimientos?modulo=${encodeURIComponent(MODULO_EPIDEMIOLOGIA)}`
+        );
+        if (response.ok) {
+          setIncidencias(await response.json());
+        }
+      } catch {
+        setIncidencias([]);
+      }
+    }
+
+    loadIncidencias();
+    function onRefresh() {
+      loadIncidencias();
+    }
+    window.addEventListener(INCUMPLIMIENTOS_REFRESH_EVENT, onRefresh);
+    return () => window.removeEventListener(INCUMPLIMIENTOS_REFRESH_EVENT, onRefresh);
+  }, []);
 
   useEffect(() => {
     async function loadVersions() {
@@ -200,10 +227,26 @@ export default function IaasIndicadoresCharts() {
   }, [selectedGroup]);
 
   useEffect(() => {
-    if (!selectedKey && indicatorGroups.length > 0) {
-      setSelectedKey(indicatorGroups[0].key);
+    if (indicatorGroups.length === 0) {
+      return;
     }
-  }, [indicatorGroups, selectedKey]);
+
+    const state = location.state;
+    if (state?.indicadorId != null) {
+      const group = indicatorGroups.find((item) =>
+        item.versions.some((version) => version.calidad_id === state.indicadorId)
+      );
+      if (group) {
+        setSelectedKey(group.key);
+        if (state.year != null) {
+          setSelectedBarYear(String(state.year));
+        }
+        return;
+      }
+    }
+
+    setSelectedKey((current) => current || indicatorGroups[0].key);
+  }, [indicatorGroups, location.state]);
 
   useEffect(() => {
     if (
@@ -449,7 +492,7 @@ export default function IaasIndicadoresCharts() {
         </label>
 
         {selectedGroup && (
-          <div className="mt-4 flex flex-wrap gap-4 text-sm text-gray-600">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
             <span>
               <strong className="text-gray-800">Años:</strong>{" "}
               {availableYears.join(", ") || "—"}
@@ -460,6 +503,10 @@ export default function IaasIndicadoresCharts() {
                 {selectedGroup.versions[0]?.meta_institucional}
               </span>
             )}
+            <IncidenciasIndicadorBadge
+              incidencias={incidencias}
+              selectedGroup={selectedGroup}
+            />
           </div>
         )}
       </div>

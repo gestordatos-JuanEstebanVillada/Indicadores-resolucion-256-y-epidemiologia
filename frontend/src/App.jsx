@@ -10,6 +10,7 @@ import IndicadoresCharts from "./IndicadoresCharts";
 import IaasForm from "./IaasForm";
 import IaasIndicadores from "./IaasIndicadores";
 import IaasIndicadoresCharts from "./IaasIndicadoresCharts";
+import PlanesMejora from "./PlanesMejora";
 import TableauView from "./Components/TableauView/TableauView";
 import { logoLiga50 } from "./assets/images.js";
 
@@ -111,6 +112,8 @@ export default function App() {
           path="infecciones/indicadores"
           element={<IaasIndicadores />}
         />
+
+        <Route path="planes-mejora" element={<PlanesMejora />} />
 
       </Route>
 

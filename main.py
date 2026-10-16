@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.modules.auth.router import router as auth_router
+from app.modules.calidad.planes_router import router as planes_router
 from app.modules.calidad.router import router as calidad_router
 from app.modules.iaas.router import router as iaas_router
 from app.modules.tableau.router import router as tableau_router
@@ -29,6 +30,11 @@ app.include_router(
 
 app.include_router(
     calidad_router,
+    prefix=settings.api_prefix
+)
+
+app.include_router(
+    planes_router,
     prefix=settings.api_prefix
 )
 

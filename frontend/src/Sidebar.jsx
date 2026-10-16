@@ -12,6 +12,7 @@ import {
   HeartPulse,
   FileSpreadsheet,
   Hospital,
+  ClipboardList,
 } from "lucide-react";
 
 import { logoLiga50 } from "./assets/images.js";
@@ -21,6 +22,11 @@ const items = [
     name: "Dashboard",
     path: "/app",
     icon: FileSpreadsheet,
+  },
+  {
+    name: "Planes de mejora",
+    path: "/app/planes-mejora",
+    icon: ClipboardList,
   },
   {
     name: "Resolución 256",
