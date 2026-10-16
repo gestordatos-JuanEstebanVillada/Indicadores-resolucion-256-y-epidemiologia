@@ -61,6 +61,10 @@ def _quality_rows(quality: IntranetCalidad):
 
             "indicador_valor": getattr(quality, f"indicador_{name}"),
 
+            "requiere_plan": _normalize_requiere_plan(
+                getattr(quality, f"requiere_plan_{name}", None)
+            ),
+
         }
 
         for month, name in MONTH_NAMES.items()
@@ -104,8 +108,11 @@ def _apply_rows(
 
             setattr(quality, f"indicador_{name}", indicador_valor)
 
-
-
+            setattr(
+                quality,
+                f"requiere_plan_{name}",
+                _normalize_requiere_plan(getattr(row, "requiere_plan", None)),
+            )
 
 
 def _clear_rows(quality: IntranetCalidad, start_month: int, end_month: int):
@@ -127,6 +134,11 @@ def _clear_rows(quality: IntranetCalidad, start_month: int, end_month: int):
 def _normalize_modulo(value: str | None) -> str:
 
     return (value or "").strip().upper()
+
+
+def _normalize_requiere_plan(value: str | None) -> str:
+    normalized = (value or "NO").strip().upper()
+    return "SI" if normalized == "SI" else "NO"
 
 
 

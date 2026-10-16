@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { CornerDownRight, Edit3, Eye, Plus, Save, Search, Trash2, X } from "lucide-react";
 import ModalOverlay from "./Components/ModalOverlay";
+import MesRequierePlanCell from "./Components/MesRequierePlanCell";
+import { dispatchIncumplimientosRefresh } from "./utils/incumplimientosEvents";
+import {
+  buildVersionUpdatePayload,
+  toggleRequierePlanInRows,
+} from "./utils/requierePlanRows";
 import {
   calculateIndicatorValue,
   formatIndicatorRowDisplay,
@@ -32,6 +38,7 @@ const emptyRows = () => months.map((_, index) => ({
   numerador: 0,
   denominador: 0,
   indicador_valor: null,
+  requiere_plan: "NO",
 }));
 
 function normalizeIndicadorKey(indicador) {
@@ -283,6 +290,7 @@ export default function Indicadores() {
     }
     setEditingId(null);
     setMessage("Indicador actualizado correctamente.");
+    dispatchIncumplimientosRefresh();
     await loadVersions();
   }
 
@@ -367,6 +375,41 @@ export default function Indicadores() {
       );
     }
     setRows(next);
+  }
+
+  function handleToggleRequierePlan(indexMes) {
+    setRows((current) => toggleRequierePlanInRows(current, current[indexMes]?.month));
+  }
+
+  async function handlePreviewToggleRequierePlan(version, month) {
+    const updatedRows = toggleRequierePlanInRows(version.rows, month);
+
+    setPreview((current) =>
+      current.map((item) =>
+        item.id === version.id ? { ...item, rows: updatedRows } : item
+      )
+    );
+
+    try {
+      const response = await fetch(`${API_URL}/indicadores/${version.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          buildVersionUpdatePayload(
+            version,
+            updatedRows,
+            MODULO_RESOLUCION_256,
+            normalizeObservatorioForPayload
+          )
+        ),
+      });
+      if (!response.ok) {
+        throw new Error("Error al guardar");
+      }
+      dispatchIncumplimientosRefresh();
+    } catch {
+      setMessage("No se pudo guardar «Requiere plan». Intente de nuevo.");
+    }
   }
 
   useEffect(() => {
@@ -552,7 +595,7 @@ export default function Indicadores() {
             <h4 className="mb-2 text-sm font-semibold text-gray-700">Resultados mensuales</h4>
             <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th className="px-3 py-2">Mes</th><th className="px-3 py-2">Numerador</th><th className="px-3 py-2">Denominador</th><th className="px-3 py-2">Indicador</th></tr></thead>
+                <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th className="px-3 py-2">Mes</th><th className="px-3 py-2">Numerador</th><th className="px-3 py-2">Denominador</th><th className="px-3 py-2">Indicador</th><th className="px-3 py-2">Requiere plan</th></tr></thead>
                 <tbody className="divide-y divide-gray-100">
                   {rows.map((row, index) => (
                     <tr key={row.month}>
@@ -561,6 +604,16 @@ export default function Indicadores() {
                       <td className="px-3 py-2"><input type="number" step="any" value={row.denominador ?? ""} onChange={(event) => updateRow(index, "denominador", event.target.value)} className="w-32 rounded border border-gray-300 px-2 py-1" /></td>
                       <td className="px-3 py-2 text-gray-600">
                         {formatIndicatorRowDisplay(row, form.formula, form.indicador)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <MesRequierePlanCell
+                          row={row}
+                          metaInstitucional={form.meta_institucional}
+                          formula={form.formula}
+                          indicador={form.indicador}
+                          value={row.requiere_plan}
+                          onToggle={() => handleToggleRequierePlan(index)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -594,7 +647,8 @@ export default function Indicadores() {
                   Vista previa del indicador
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Histórico unificado · {getYearRange(preview)}
+                  Histórico unificado · {getYearRange(preview)} · El switch «Requiere
+                  plan» guarda al instante.
                 </p>
               </div>
 
@@ -663,6 +717,7 @@ export default function Indicadores() {
                           <th className="px-3 py-2">Numerador</th>
                           <th className="px-3 py-2">Denominador</th>
                           <th className="px-3 py-2">Indicador</th>
+                          <th className="px-3 py-2">Requiere plan</th>
                         </tr>
                       </thead>
 
@@ -696,6 +751,18 @@ export default function Indicadores() {
                             </td>
                             <td className="px-3 py-2">
                               {formatIndicatorRowDisplay(row, version.formula, version.indicador)}
+                            </td>
+                            <td className="px-3 py-2">
+                              <MesRequierePlanCell
+                                row={row}
+                                metaInstitucional={version.meta_institucional}
+                                formula={version.formula}
+                                indicador={version.indicador}
+                                value={row.requiere_plan}
+                                onToggle={() =>
+                                  handlePreviewToggleRequierePlan(version, row.month)
+                                }
+                              />
                             </td>
                           </tr>
                         ))}

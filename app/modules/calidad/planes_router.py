@@ -12,7 +12,7 @@ from app.modules.calidad.planes_schemas import (
     PlanMejoraListadoOut,
     PlanMejoraOut,
 )
-from app.modules.calidad.router import MONTH_NAMES, _normalize_modulo
+from app.modules.calidad.router import MONTH_NAMES, _normalize_modulo, _normalize_requiere_plan
 from app.shared.database.session import get_db
 
 router = APIRouter(tags=["Planes de mejora"])
@@ -111,6 +111,16 @@ def listar_incumplimientos(
                 continue
 
             if evaluar_cumplimiento_meta(valor, meta):
+                continue
+
+            month_name = MONTH_NAMES.get(month)
+            if not month_name:
+                continue
+
+            requiere_plan = _normalize_requiere_plan(
+                getattr(quality, f"requiere_plan_{month_name}", None)
+            )
+            if requiere_plan != "SI":
                 continue
 
             if _plan_exists(db, quality.id, record_year, month):

@@ -144,12 +144,21 @@ export function recalculateRowsWithIndicator(rows, formula, indicadorName = "") 
 }
 
 /** Recalcula filas mensuales de una versión/indicador completo. */
+function normalizeRequierePlanFlag(value) {
+  return (value || "NO").toUpperCase() === "SI" ? "SI" : "NO";
+}
+
 export function recalculateVersionIndicatorRows(version, emptyRows = []) {
   const formula = version?.formula ?? "";
   const indicadorName = version?.indicador ?? "";
   const sourceRows = version?.rows?.length ? version.rows : emptyRows;
+  const normalizedRows = sourceRows.map((row, index) => ({
+    ...(emptyRows[index] || { requiere_plan: "NO" }),
+    ...row,
+    requiere_plan: normalizeRequierePlanFlag(row.requiere_plan),
+  }));
 
-  return recalculateRowsWithIndicator(sourceRows, formula, indicadorName);
+  return recalculateRowsWithIndicator(normalizedRows, formula, indicadorName);
 }
 
 /** Normaliza todas las versiones recibidas de la API. */

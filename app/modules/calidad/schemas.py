@@ -8,6 +8,7 @@ class CalidadRow(BaseModel):
     numerador: Optional[float] = 0
     denominador: Optional[float] = 0
     indicador_valor: Optional[float] = 0
+    requiere_plan: Optional[str] = "NO"
 
 
 class CalidadCreate(BaseModel):
