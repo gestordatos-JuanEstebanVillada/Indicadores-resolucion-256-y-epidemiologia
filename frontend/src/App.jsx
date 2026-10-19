@@ -12,7 +12,7 @@ import IaasForm from "./IaasForm";
 import IaasIndicadores from "./IaasIndicadores";
 import IaasIndicadoresCharts from "./IaasIndicadoresCharts";
 import PlanesMejora from "./PlanesMejora";
-import TableauView from "./Components/TableauView/TableauView";
+import MainDashboard from "./MainDashboard";
 import { logoLiga50 } from "./assets/images.js";
 
 export default function App() {
@@ -107,14 +107,7 @@ export default function App() {
         }
       >
 
-        <Route
-          path="/app"
-          element={
-            <ProtectedRoute>
-              <TableauView />
-            </ProtectedRoute>
-          }
-          />
+        <Route index element={<MainDashboard />} />
 
         {/* PACIENTES */}
         <Route

@@ -2,8 +2,6 @@ import React from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import NotificationBell from "./Components/Notifications/NotificationBell";
-import TableauEmbed from "./Components/TableauEmbed";
-
 export default function Dashboard() {
 
   const location = useLocation();
@@ -28,6 +26,10 @@ export default function Dashboard() {
 
     if (location.pathname.includes("indicadores")) {
       return "Indicadores";
+    }
+
+    if (location.pathname === "/app" || location.pathname === "/app/") {
+      return "Panel general";
     }
 
     return "Indicadores de Calidad";
