@@ -1,4 +1,5 @@
 import React from "react";
+import { Toaster } from "react-hot-toast";
 import { Routes, Route } from "react-router-dom";
 
 import Login from "./Login";
@@ -16,6 +17,39 @@ import { logoLiga50 } from "./assets/images.js";
 
 export default function App() {
   return (
+    <>
+    <Toaster
+      position="top-center"
+      reverseOrder={false}
+      containerStyle={{
+        zIndex: 99999,
+        top: 12,
+      }}
+      toastOptions={{
+        duration: 4000,
+        style: {
+          maxWidth: 500,
+          padding: "12px 16px",
+          borderRadius: 8,
+          fontSize: "14px",
+          fontWeight: 500,
+          boxShadow:
+            "0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+        },
+        success: {
+          style: {
+            background: "#059669",
+            color: "#fff",
+          },
+        },
+        error: {
+          style: {
+            background: "#e11d48",
+            color: "#fff",
+          },
+        },
+      }}
+    />
     <Routes>
 
       {/* LOGIN */}
@@ -118,5 +152,6 @@ export default function App() {
       </Route>
 
     </Routes>
+    </>
   );
 }

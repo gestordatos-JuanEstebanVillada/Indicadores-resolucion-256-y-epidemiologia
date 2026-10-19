@@ -3,10 +3,9 @@ import { CornerDownRight, Edit3, Eye, Plus, Save, Search, Trash2, X } from "luci
 import ModalOverlay from "./Components/ModalOverlay";
 import MesRequierePlanCell from "./Components/MesRequierePlanCell";
 import { dispatchIncumplimientosRefresh } from "./utils/incumplimientosEvents";
-import {
-  buildVersionUpdatePayload,
-  toggleRequierePlanInRows,
-} from "./utils/requierePlanRows";
+import { attemptToggleRequierePlanInRows } from "./utils/attemptToggleRequierePlan";
+import { buildVersionUpdatePayload } from "./utils/requierePlanRows";
+import { toastRequierePlanGuardadoError } from "./utils/requierePlanToast";
 import {
   calculateIndicatorValue,
   formatIndicatorRowDisplay,
@@ -379,11 +378,29 @@ export default function IaasIndicadores() {
   }
 
   function handleToggleRequierePlan(indexMes) {
-    setRows((current) => toggleRequierePlanInRows(current, current[indexMes]?.month));
+    const month = rows[indexMes]?.month;
+    if (!month) {
+      return;
+    }
+    const updatedRows = attemptToggleRequierePlanInRows(rows, month, {
+      metaInstitucional: form.meta_institucional,
+      formula: form.formula,
+      indicador: form.indicador,
+    });
+    if (updatedRows) {
+      setRows(updatedRows);
+    }
   }
 
   async function handlePreviewToggleRequierePlan(version, month) {
-    const updatedRows = toggleRequierePlanInRows(version.rows, month);
+    const updatedRows = attemptToggleRequierePlanInRows(version.rows, month, {
+      metaInstitucional: version.meta_institucional,
+      formula: version.formula,
+      indicador: version.indicador,
+    });
+    if (!updatedRows) {
+      return;
+    }
 
     setPreview((current) =>
       current.map((item) =>
@@ -409,7 +426,7 @@ export default function IaasIndicadores() {
       }
       dispatchIncumplimientosRefresh();
     } catch {
-      setMessage("No se pudo guardar «Requiere plan». Intente de nuevo.");
+      toastRequierePlanGuardadoError();
     }
   }
 
