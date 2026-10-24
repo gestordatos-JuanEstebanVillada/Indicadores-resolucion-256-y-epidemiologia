@@ -18,7 +18,20 @@ class Usuario(Base):
     estado: Mapped[str | None] = mapped_column(String(20))
     id_clase: Mapped[int | None] = mapped_column(Integer)
     id_area: Mapped[int | None] = mapped_column(Integer)
-    num_id: Mapped[int | None] = mapped_column(Integer)
+    # NIT / documento institucional; puede incluir guiones (ej. 891480000-1)
+    num_id: Mapped[str | None] = mapped_column(String(50))
+
+
+class IntranetCalidadRol(Base):
+    __tablename__ = "INTRANET_CALIDAD_ROLES"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    rol: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[str | None] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
 
 class IntranetCalidad(Base):

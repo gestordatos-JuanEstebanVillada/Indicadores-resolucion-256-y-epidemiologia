@@ -8,12 +8,19 @@ from app.models import Usuario
 from app.modules.auth.repository import AuthRepository
 from app.modules.auth.schemas import AuthResponse, LoginRequest, UserInfo
 from app.modules.auth.exceptions import UsuarioInactivoError
+from app.modules.auth.roles import normalizar_rol
 
 ESTADOS_ACTIVOS = {"1", "A", "S", "ACTIVO", "TRUE"}
+ESTADOS_INACTIVOS = {"0", "I", "N", "INACTIVO", "FALSE"}
 
 
 def _esta_activo(estado: str | None) -> bool:
-    return not estado or estado.strip().upper() in ESTADOS_ACTIVOS
+    if not estado:
+        return True
+    normalized = estado.strip().upper()
+    if normalized in ESTADOS_INACTIVOS:
+        return False
+    return normalized in ESTADOS_ACTIVOS
 
 
 def _contrasena_coincide(guardada: str | None, ingresada: str) -> bool:
@@ -22,15 +29,24 @@ def _contrasena_coincide(guardada: str | None, ingresada: str) -> bool:
     return guardada.strip().upper() == ingresada.strip().upper()
 
 
-def _rol(usuario: Usuario) -> str:
-    # No hay nombre de rol en esta tabla, solo ID_CLASE (numerico); se expone
-    # tal cual hasta que se sepa el mapeo numero -> nombre de rol.
-    return str(usuario.id_clase) if usuario.id_clase is not None else "usuario"
-
-
 class AuthService:
     def __init__(self, repository: AuthRepository):
         self.repository = repository
+
+    def _rol_desde_asignacion(self, usuario: Usuario) -> str:
+        asignacion = self.repository.obtener_rol_indicadores(usuario.id)
+        if asignacion is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene rol asignado en el sistema de Indicadores",
+            )
+        rol = normalizar_rol(asignacion.rol)
+        if rol is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Rol asignado no válido",
+            )
+        return rol
 
     def login(self, data: LoginRequest) -> AuthResponse:
         usuario = self.repository.obtener_por_usuario(data.username)
@@ -52,16 +68,24 @@ class AuthService:
                 detail="El usuario está inactivo",
             )
 
+        rol = self._rol_desde_asignacion(usuario)
         token = create_access_token(
-            data={"sub": usuario.usuario, "role": _rol(usuario)},
+            data={
+                "sub": usuario.usuario,
+                "rol": rol,
+                "role": rol,
+                "id": usuario.id,
+            },
             expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
         )
         return AuthResponse(
             token=token,
-            role=_rol(usuario),
+            role=rol,
+            rol=rol,
+            id=usuario.id,
             username=usuario.usuario or "",
             nombres=usuario.nombres or "",
-            portal_role=_rol(usuario),
+            portal_role=rol,
             id_area=usuario.id_area,
         )
 
@@ -69,10 +93,13 @@ class AuthService:
         usuario = self.repository.obtener_por_usuario(username)
         if usuario is None or not _esta_activo(usuario.estado):
             raise UsuarioInactivoError()
+        rol = self._rol_desde_asignacion(usuario)
         return UserInfo(
+            id=usuario.id,
             username=usuario.usuario or "",
             nombres=usuario.nombres or "",
-            role=_rol(usuario),
-            portal_role=_rol(usuario),
+            role=rol,
+            rol=rol,
+            portal_role=rol,
             id_area=usuario.id_area,
         )

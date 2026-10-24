@@ -24,6 +24,10 @@ export default function Dashboard() {
       return "Planes de mejora";
     }
 
+    if (location.pathname.includes("usuarios")) {
+      return "Gestión de usuarios";
+    }
+
     if (location.pathname.includes("indicadores")) {
       return "Indicadores";
     }

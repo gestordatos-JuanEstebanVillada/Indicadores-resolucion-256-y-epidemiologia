@@ -13,9 +13,16 @@ import {
   FileSpreadsheet,
   Hospital,
   ClipboardList,
+  Users,
 } from "lucide-react";
 
 import { logoLiga50 } from "./assets/images.js";
+import {
+  canAccessAdmin,
+  canAccessEpidemiologia,
+  canAccessResolucion256,
+  clearAuthSession,
+} from "./utils/authRoles";
 
 const items = [
   {
@@ -89,6 +96,16 @@ export default function Sidebar() {
 
   const navigate = useNavigate();
 
+  const visibleItems = items.filter((item) => {
+    if (item.name === "Resolución 256") {
+      return canAccessResolucion256();
+    }
+    if (item.name === "Infecciones") {
+      return canAccessEpidemiologia();
+    }
+    return true;
+  });
+
   const toggleMenu = (name) =>
     setOpenMenus((prev) => ({ ...prev, [name]: !prev[name] }));
 
@@ -102,7 +119,7 @@ export default function Sidebar() {
   };
 
   function logout() {
-    localStorage.removeItem("token");
+    clearAuthSession();
     navigate("/");
   }
 
@@ -167,7 +184,17 @@ export default function Sidebar() {
           </p>
         )}
 
-        {items.map((item) => {
+        {canAccessAdmin() ? (
+          <NavLink
+            to="/app/usuarios"
+            className={({ isActive }) => navLinkBaseClass(isActive, collapsed)}
+          >
+            <Users size={20} strokeWidth={1.8} />
+            {!collapsed && <span className="font-medium text-sm">Gestión de usuarios</span>}
+          </NavLink>
+        ) : null}
+
+        {visibleItems.map((item) => {
           const Icon = item.icon;
 
           if (!item.subItems) {

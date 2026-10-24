@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_URL } from './config/api.js'
+import { persistAuthSession } from './utils/authRoles'
 
 export default function Login(){
   const [username, setUsername] = useState('')
@@ -23,11 +24,8 @@ export default function Login(){
         return
       }
       const data = await res.json()
-      setMessage('Login successful')
-      if(data.token){
-        localStorage.setItem('token', data.token)
-        navigate('/app')
-      }
+      persistAuthSession(data)
+      navigate('/app')
     }catch(err){
       setMessage('Usuario o contraseña incorrectos')
     }

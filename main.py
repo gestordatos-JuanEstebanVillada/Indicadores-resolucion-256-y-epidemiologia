@@ -8,6 +8,7 @@ from app.modules.calidad.planes_router import router as planes_router
 from app.modules.calidad.router import router as calidad_router
 from app.modules.iaas.router import router as iaas_router
 from app.modules.tableau.router import router as tableau_router
+from app.modules.usuarios.router import router as usuarios_router
 
 
 app = FastAPI(title=settings.app_name)
@@ -45,6 +46,11 @@ app.include_router(
 
 app.include_router(
     tableau_router,
+    prefix=settings.api_prefix,
+)
+
+app.include_router(
+    usuarios_router,
     prefix=settings.api_prefix,
 )
 
