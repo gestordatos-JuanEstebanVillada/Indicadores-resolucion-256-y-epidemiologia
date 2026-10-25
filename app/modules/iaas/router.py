@@ -17,6 +17,8 @@ from app.modules.calidad.router import (
     _version_to_dict,
     upsert_calidad_from_excel_payload,
 )
+from app.modules.auditoria.dependencies import get_audit_actor
+from app.modules.auditoria.service import registrar_auditoria
 from app.modules.calidad.schemas import (
     CalidadCreate,
     IndicadorVersionCreate,
@@ -63,7 +65,11 @@ def listar_indicadores_iaas(db: Session = Depends(get_db)):
 
 
 @router.delete("/iaas/indicadores/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
-def eliminar_indicador_iaas(version_id: int, db: Session = Depends(get_db)):
+def eliminar_indicador_iaas(
+    version_id: int,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
     version = db.get(IntranetCalidadVersion, version_id)
     if version is None:
         quality = db.get(IntranetCalidad, abs(version_id))
@@ -77,6 +83,13 @@ def eliminar_indicador_iaas(version_id: int, db: Session = Depends(get_db)):
             db.delete(related_version)
         db.flush()
         db.delete(quality)
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="DELETE",
+            modulo="INDICADORES",
+            detalle=f"Eliminó indicador IAAS legacy id={quality.id}",
+        )
         db.commit()
         return None
 
@@ -103,6 +116,13 @@ def eliminar_indicador_iaas(version_id: int, db: Session = Depends(get_db)):
         db.flush()
         if quality:
             db.delete(quality)
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="DELETE",
+            modulo="INDICADORES",
+            detalle=f"Eliminó indicador IAAS calidad_id={version.calidad_id}, versión {version_id}",
+        )
         db.commit()
         return None
 
@@ -111,12 +131,25 @@ def eliminar_indicador_iaas(version_id: int, db: Session = Depends(get_db)):
     db.delete(version)
     if previous:
         previous.mes_fin = following.mes_inicio - 1 if following else 12
+    nombre = (quality.indicador if quality else None) or f"versión {version_id}"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="DELETE",
+        modulo="INDICADORES",
+        detalle=f"Eliminó versión IAAS «{nombre}» (id {version_id})",
+    )
     db.commit()
     return None
 
 
 @router.put("/iaas/indicadores/{version_id}", response_model=IndicadorVersionOut)
-def editar_indicador_iaas(version_id: int, payload: IndicadorVersionUpdate, db: Session = Depends(get_db)):
+def editar_indicador_iaas(
+    version_id: int,
+    payload: IndicadorVersionUpdate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
     version = db.get(IntranetCalidadVersion, version_id)
     if version is None:
         quality = db.get(IntranetCalidad, abs(version_id))
@@ -148,6 +181,13 @@ def editar_indicador_iaas(version_id: int, payload: IndicadorVersionUpdate, db: 
                 mes_fin=12,
             )
         )
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="PUT",
+            modulo="INDICADORES",
+            detalle=f"Editó indicador IAAS «{payload.indicador or quality.indicador}»",
+        )
         db.commit()
         return _legacy_quality_to_dict(quality)
 
@@ -173,12 +213,25 @@ def editar_indicador_iaas(version_id: int, payload: IndicadorVersionUpdate, db: 
                 payload.indicador if payload.indicador is not None else version.indicador
             ),
         )
+    nombre = payload.indicador or version.indicador or f"versión {version_id}"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="PUT",
+        modulo="INDICADORES",
+        detalle=f"Editó indicador IAAS «{nombre}» (versión {version_id})",
+    )
     db.commit()
     return _version_to_dict(version, quality)
 
 
 @router.post("/iaas/indicadores/{calidad_id}/versiones", response_model=IndicadorVersionOut, status_code=201)
-def crear_version_iaas(calidad_id: int, payload: IndicadorVersionCreate, db: Session = Depends(get_db)):
+def crear_version_iaas(
+    calidad_id: int,
+    payload: IndicadorVersionCreate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
     calidad = db.get(IntranetCalidad, calidad_id)
     if calidad is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Indicador no encontrado")
@@ -230,16 +283,43 @@ def crear_version_iaas(calidad_id: int, payload: IndicadorVersionCreate, db: Ses
         indicador_name=payload.indicador,
     )
     db.add(version)
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="POST",
+        modulo="INDICADORES",
+        detalle=(
+            f"Nueva versión IAAS mes {payload.mes_inicio} — "
+            f"«{payload.indicador or calidad.indicador}» (calidad_id={calidad_id})"
+        ),
+    )
     db.commit()
     db.refresh(version)
     return _version_to_dict(version, calidad)
 
 
 @router.post("/iaas", status_code=201)
-def crear_iaas(payload: CalidadCreate, db: Session = Depends(get_db)):
-    return upsert_calidad_from_excel_payload(
+def crear_iaas(
+    payload: CalidadCreate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
+    result = upsert_calidad_from_excel_payload(
         db,
         payload,
         default_modulo=MODULO_EPIDEMIOLOGIA,
     )
+    accion = "PUT" if result.get("updated") else "POST"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion=accion,
+        modulo="INDICADORES",
+        detalle=(
+            f"{'Actualizó' if accion == 'PUT' else 'Creó'} indicador IAAS «{payload.indicador}» "
+            f"año {payload.year}"
+        ),
+    )
+    db.commit()
+    return result
 

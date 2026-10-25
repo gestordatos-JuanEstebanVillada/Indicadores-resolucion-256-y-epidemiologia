@@ -14,6 +14,7 @@ import {
   createEmptyRows,
   months,
 } from "./Components/Iaas/constants";
+import { apiFetch } from "./config/api";
 import {
   buildPlantillaUploadSummary,
   buildTableroUploadSummary,
@@ -211,11 +212,8 @@ export default function IaasForm() {
 
         const payload = indicadorToApiPayload(indicadorItem, { year });
 
-        const response = await fetch(`${API_URL}/api/iaas`, {
+        const response = await apiFetch(`${API_URL}/iaas`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(payload),
         });
 
@@ -469,11 +467,8 @@ export default function IaasForm() {
         })),
       };
 
-      const response = await fetch(`${API_URL}/api/iaas`, {
+      const response = await apiFetch(`${API_URL}/iaas`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(payload),
       });
 

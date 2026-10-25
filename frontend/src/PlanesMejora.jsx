@@ -21,6 +21,8 @@ import {
 
 } from "./utils/moduleConstants";
 
+import { canAccessAdmin, getUserRol, ROLES } from "./utils/authRoles";
+
 
 
 const ESTADO_FILTROS = [
@@ -114,6 +116,8 @@ function chartsPathForModulo(modulo) {
 
 export default function PlanesMejora() {
   const navigate = useNavigate();
+  const esAdmin = canAccessAdmin();
+  const rolUsuario = getUserRol();
   const [activeTab, setActiveTab] = useState("incidencias");
 
 
@@ -141,7 +145,15 @@ export default function PlanesMejora() {
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const [filtroModulo, setFiltroModulo] = useState("Todos");
+  const [filtroModulo, setFiltroModulo] = useState(() => {
+    if (canAccessAdmin()) {
+      return "Todos";
+    }
+    if (getUserRol() === ROLES.EPIDEMIOLOGIA) {
+      return MODULO_EPIDEMIOLOGIA;
+    }
+    return MODULO_RESOLUCION_256;
+  });
   const [filtroYear, setFiltroYear] = useState("Todos");
   const [filtroMes, setFiltroMes] = useState("Todos");
 
@@ -609,20 +621,31 @@ export default function PlanesMejora() {
       {activeTab === "incidencias" ? (
         <>
           <div className="flex flex-wrap gap-3 items-end bg-white border border-gray-200 rounded-xl p-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                Módulo
-              </label>
-              <select
-                value={filtroModulo}
-                onChange={(event) => setFiltroModulo(event.target.value)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[200px]"
-              >
-                <option value="Todos">Todos</option>
-                <option value={MODULO_RESOLUCION_256}>Resolución 256</option>
-                <option value={MODULO_EPIDEMIOLOGIA}>Epidemiología / IAAS</option>
-              </select>
-            </div>
+            {esAdmin ? (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                  Módulo
+                </label>
+                <select
+                  value={filtroModulo}
+                  onChange={(event) => setFiltroModulo(event.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[200px]"
+                >
+                  <option value="Todos">Todos</option>
+                  <option value={MODULO_RESOLUCION_256}>Resolución 256</option>
+                  <option value={MODULO_EPIDEMIOLOGIA}>Epidemiología / IAAS</option>
+                </select>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 pb-2">
+                Módulo:{" "}
+                <span className="font-medium text-gray-800">
+                  {rolUsuario === ROLES.EPIDEMIOLOGIA
+                    ? "Epidemiología / IAAS"
+                    : "Resolución 256"}
+                </span>
+              </p>
+            )}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
                 Año
@@ -781,33 +804,44 @@ export default function PlanesMejora() {
 
           <div className="flex flex-wrap gap-3 items-end bg-white border border-gray-200 rounded-xl p-4">
 
-            <div>
+            {esAdmin ? (
+              <div>
 
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
 
-                Módulo
+                  Módulo
 
-              </label>
+                </label>
 
-              <select
+                <select
 
-                value={filterModulo}
+                  value={filterModulo}
 
-                onChange={(event) => setFilterModulo(event.target.value)}
+                  onChange={(event) => setFilterModulo(event.target.value)}
 
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[200px]"
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-w-[200px]"
 
-              >
+                >
 
-                <option value="">Todos</option>
+                  <option value="">Todos</option>
 
-                <option value={MODULO_RESOLUCION_256}>Resolución 256</option>
+                  <option value={MODULO_RESOLUCION_256}>Resolución 256</option>
 
-                <option value={MODULO_EPIDEMIOLOGIA}>Epidemiología / IAAS</option>
+                  <option value={MODULO_EPIDEMIOLOGIA}>Epidemiología / IAAS</option>
 
-              </select>
+                </select>
 
-            </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600 pb-2">
+                Módulo:{" "}
+                <span className="font-medium text-gray-800">
+                  {rolUsuario === ROLES.EPIDEMIOLOGIA
+                    ? "Epidemiología / IAAS"
+                    : "Resolución 256"}
+                </span>
+              </p>
+            )}
 
             <div>
 

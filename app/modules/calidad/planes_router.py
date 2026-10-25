@@ -13,6 +13,10 @@ from app.modules.calidad.planes_schemas import (
     PlanMejoraOut,
 )
 from app.modules.calidad.router import MONTH_NAMES, _normalize_modulo, _normalize_requiere_plan
+from app.modules.auditoria.dependencies import get_audit_actor
+from app.modules.auditoria.service import registrar_auditoria
+from app.modules.auth.admin_dependencies import get_current_token_payload
+from app.modules.auth.module_access import resolver_filtro_modulo
 from app.shared.database.session import get_db
 
 router = APIRouter(tags=["Planes de mejora"])
@@ -87,8 +91,16 @@ def listar_incumplimientos(
     modulo: str = Query(..., description="RESOLUCION_256 o EPIDEMIOLOGIA"),
     year: int | None = Query(None),
     db: Session = Depends(get_db),
+    token_payload: dict = Depends(get_current_token_payload),
 ):
-    filter_modulo = _normalize_modulo(modulo)
+    filter_modulo = resolver_filtro_modulo(
+        token_payload, modulo, normalize=_normalize_modulo
+    )
+    if not filter_modulo:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Parámetro modulo requerido",
+        )
     stmt = select(IntranetCalidad).where(IntranetCalidad.modulo == filter_modulo)
     if year is not None:
         stmt = stmt.where(IntranetCalidad.year == year)
@@ -152,7 +164,11 @@ def listar_incumplimientos(
 
 
 @router.post("/planes-mejora", response_model=PlanMejoraOut, status_code=status.HTTP_201_CREATED)
-def crear_plan_mejora(payload: PlanMejoraCreate, db: Session = Depends(get_db)):
+def crear_plan_mejora(
+    payload: PlanMejoraCreate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
     quality = db.get(IntranetCalidad, payload.calidad_id)
     if quality is None:
         raise HTTPException(
@@ -180,6 +196,16 @@ def crear_plan_mejora(payload: PlanMejoraCreate, db: Session = Depends(get_db)):
         estado="PENDIENTE",
     )
     db.add(plan)
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="POST",
+        modulo="PLANES_MEJORA",
+        detalle=(
+            f"Creó plan de mejora para indicador id={payload.calidad_id}, "
+            f"año {payload.year}, mes {payload.mes} ({MONTH_LABELS.get(payload.mes, payload.mes)})"
+        ),
+    )
     db.commit()
     db.refresh(plan)
     return plan
@@ -236,8 +262,14 @@ def listar_todos_planes_mejora(
     estado: str | None = Query(None),
     year: int | None = Query(None),
     db: Session = Depends(get_db),
+    token_payload: dict = Depends(get_current_token_payload),
 ):
-    rows = db.execute(_build_planes_query(modulo=modulo, estado=estado, year=year)).all()
+    effective_modulo = resolver_filtro_modulo(
+        token_payload, modulo, normalize=_normalize_modulo
+    )
+    rows = db.execute(
+        _build_planes_query(modulo=effective_modulo, estado=estado, year=year)
+    ).all()
     return [_plan_to_listado(plan, indicador) for plan, indicador in rows]
 
 
@@ -245,6 +277,7 @@ def listar_todos_planes_mejora(
 def actualizar_estado_masivo_planes(
     payload: PlanEstadoMasivoUpdate,
     db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
 ):
     nuevo_estado = payload.nuevo_estado.upper()
     if nuevo_estado not in {"CUMPLIDO", "NO_CUMPLIDO"}:
@@ -271,6 +304,17 @@ def actualizar_estado_masivo_planes(
         .where(IntranetPlanMejora.id.in_(existing_ids))
         .values(estado=nuevo_estado)
     )
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="PATCH",
+        modulo="PLANES_MEJORA",
+        detalle=(
+            f"Actualizó estado masivo de {len(existing_ids)} plan(es) a {nuevo_estado}. "
+            f"IDs: {', '.join(str(i) for i in existing_ids[:20])}"
+            f"{'…' if len(existing_ids) > 20 else ''}"
+        ),
+    )
     db.commit()
 
     return PlanEstadoMasivoResponse(
@@ -284,14 +328,18 @@ def listar_planes_mejora(
     modulo: str | None = Query(None),
     year: int | None = Query(None),
     db: Session = Depends(get_db),
+    token_payload: dict = Depends(get_current_token_payload),
 ):
+    effective_modulo = resolver_filtro_modulo(
+        token_payload, modulo, normalize=_normalize_modulo
+    )
     stmt = select(IntranetPlanMejora).order_by(
         IntranetPlanMejora.year.desc(),
         IntranetPlanMejora.mes.desc(),
         IntranetPlanMejora.id.desc(),
     )
-    if modulo:
-        stmt = stmt.where(IntranetPlanMejora.modulo == _normalize_modulo(modulo))
+    if effective_modulo:
+        stmt = stmt.where(IntranetPlanMejora.modulo == effective_modulo)
     if year is not None:
         stmt = stmt.where(IntranetPlanMejora.year == year)
 

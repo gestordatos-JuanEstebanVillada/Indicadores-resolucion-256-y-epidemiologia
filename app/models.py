@@ -22,6 +22,17 @@ class Usuario(Base):
     num_id: Mapped[str | None] = mapped_column(String(50))
 
 
+class IntranetCalidadAuditoria(Base):
+    __tablename__ = "INTRANET_CALIDAD_AUDITORIA"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    usuario: Mapped[str] = mapped_column(String(250), nullable=False)
+    accion: Mapped[str] = mapped_column(String(50), nullable=False)
+    modulo: Mapped[str] = mapped_column(String(100), nullable=False)
+    detalle: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now())
+
+
 class IntranetCalidadRol(Base):
     __tablename__ = "INTRANET_CALIDAD_ROLES"
 

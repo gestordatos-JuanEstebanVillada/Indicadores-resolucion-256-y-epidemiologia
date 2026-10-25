@@ -14,6 +14,7 @@ import IaasIndicadoresCharts from "./IaasIndicadoresCharts";
 import PlanesMejora from "./PlanesMejora";
 import MainDashboard from "./MainDashboard";
 import UsuariosList from "./UsuariosList";
+import AuditoriaList from "./AuditoriaList";
 import AdminRoute from "./AdminRoute";
 import { logoLiga50 } from "./assets/images.js";
 
@@ -149,6 +150,15 @@ export default function App() {
           element={
             <AdminRoute>
               <UsuariosList />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="auditoria"
+          element={
+            <AdminRoute>
+              <AuditoriaList />
             </AdminRoute>
           }
         />

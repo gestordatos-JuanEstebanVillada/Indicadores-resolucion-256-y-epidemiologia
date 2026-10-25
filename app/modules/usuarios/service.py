@@ -6,6 +6,7 @@ from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import IntranetCalidadRol, Usuario
+from app.modules.auditoria.service import registrar_auditoria
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,7 @@ def crear_usuario_con_rol(
     usuario: str,
     contrasena: str,
     rol: str,
+    actor: str,
 ) -> tuple[Usuario, IntranetCalidadRol]:
     login = normalize_login(usuario)
     try:
@@ -106,6 +108,13 @@ def crear_usuario_con_rol(
 
         nuevo_rol = IntranetCalidadRol(usuario_id=nuevo_usuario.id, rol=rol)
         db.add(nuevo_rol)
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="POST",
+            modulo="USUARIOS",
+            detalle=f"Creó usuario {login} con rol {rol}",
+        )
         db.commit()
         db.refresh(nuevo_usuario)
         db.refresh(nuevo_rol)
@@ -145,6 +154,7 @@ def eliminar_acceso_y_usuario(
     db: Session,
     *,
     usuario_id: int,
+    actor: str,
 ) -> None:
     try:
         rol = db.scalar(
@@ -163,8 +173,18 @@ def eliminar_acceso_y_usuario(
         if rol is not None:
             db.delete(rol)
         if user is not None:
+            login = user.usuario or str(usuario_id)
             db.delete(user)
+        else:
+            login = str(usuario_id)
 
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="DELETE",
+            modulo="USUARIOS",
+            detalle=f"Eliminó usuario {login} y su rol en Indicadores",
+        )
         db.commit()
     except HTTPException:
         db.rollback()

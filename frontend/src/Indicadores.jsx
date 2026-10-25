@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CornerDownRight, Edit3, Eye, Plus, Save, Search, Trash2, X } from "lucide-react";
 import ModalOverlay from "./Components/ModalOverlay";
 import MesRequierePlanCell from "./Components/MesRequierePlanCell";
@@ -17,7 +17,7 @@ import {
   MODULO_RESOLUCION_256,
   normalizeObservatorioForPayload,
 } from "./utils/moduleConstants";
-import { API_URL } from "./config/api.js";
+import { API_URL, apiFetch } from "./config/api.js";
 
 const months = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -189,6 +189,7 @@ function IndicatorRow({
 }
 
 export default function Indicadores() {
+  const requierePlanSaveKeysRef = useRef(new Set());
   const [versions, setVersions] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -204,7 +205,7 @@ export default function Indicadores() {
   async function loadVersions() {
     setLoading(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_URL}/indicadores?modulo=${encodeURIComponent(MODULO_RESOLUCION_256)}`
       );
       if (!response.ok) throw new Error("No se pudieron cargar los indicadores.");
@@ -272,9 +273,8 @@ export default function Indicadores() {
 
   async function saveVersion(event) {
     event.preventDefault();
-    const response = await fetch(`${API_URL}/indicadores/${editingId}`, {
+    const response = await apiFetch(`${API_URL}/indicadores/${editingId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
         observatorio: normalizeObservatorioForPayload(form.observatorio),
@@ -295,9 +295,8 @@ export default function Indicadores() {
 
   async function saveNewVersion(event) {
     event.preventDefault();
-    const response = await fetch(`${API_URL}/indicadores/${newVersionFor}/versiones`, {
+    const response = await apiFetch(`${API_URL}/indicadores/${newVersionFor}/versiones`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...form,
         observatorio: normalizeObservatorioForPayload(form.observatorio),
@@ -318,7 +317,7 @@ export default function Indicadores() {
 
   async function deleteVersion() {
     if (!window.confirm("¿Seguro que deseas eliminar este indicador? Esta acción no se puede deshacer.")) return;
-    const response = await fetch(`${API_URL}/indicadores/${editingId}`, { method: "DELETE" });
+    const response = await apiFetch(`${API_URL}/indicadores/${editingId}`, { method: "DELETE" });
     if (!response.ok) {
       const data = await response.json();
       setMessage(data.detail || "No se pudo eliminar el indicador.");
@@ -392,6 +391,11 @@ export default function Indicadores() {
   }
 
   async function handlePreviewToggleRequierePlan(version, month) {
+    const saveKey = `${version.id}-${month}`;
+    if (requierePlanSaveKeysRef.current.has(saveKey)) {
+      return;
+    }
+
     const updatedRows = attemptToggleRequierePlanInRows(version.rows, month, {
       metaInstitucional: version.meta_institucional,
       formula: version.formula,
@@ -401,6 +405,9 @@ export default function Indicadores() {
       return;
     }
 
+    const previousRows = version.rows;
+    requierePlanSaveKeysRef.current.add(saveKey);
+
     setPreview((current) =>
       current.map((item) =>
         item.id === version.id ? { ...item, rows: updatedRows } : item
@@ -408,9 +415,8 @@ export default function Indicadores() {
     );
 
     try {
-      const response = await fetch(`${API_URL}/indicadores/${version.id}`, {
+      const response = await apiFetch(`${API_URL}/indicadores/${version.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           buildVersionUpdatePayload(
             version,
@@ -425,7 +431,14 @@ export default function Indicadores() {
       }
       dispatchIncumplimientosRefresh();
     } catch {
+      setPreview((current) =>
+        current.map((item) =>
+          item.id === version.id ? { ...item, rows: previousRows } : item
+        )
+      );
       toastRequierePlanGuardadoError();
+    } finally {
+      requierePlanSaveKeysRef.current.delete(saveKey);
     }
   }
 

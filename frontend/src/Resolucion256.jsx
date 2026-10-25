@@ -14,6 +14,7 @@ import {
   createEmptyRows,
   months,
 } from "./Components/Resolucion256/constants";
+import { apiFetch } from "./config/api";
 import {
   buildPlantillaUploadSummary,
   buildTableroUploadSummary,
@@ -254,11 +255,8 @@ export default function Resolucion256() {
           observatorio: indicadorItem.observatorio || observatorio,
         });
 
-        const response = await fetch(`${API_URL}/api/calidad`, {
+        const response = await apiFetch(`${API_URL}/calidad`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(payload),
         });
 
@@ -515,11 +513,8 @@ export default function Resolucion256() {
         })),
       };
 
-      const response = await fetch(`${API_URL}/api/calidad`, {
+      const response = await apiFetch(`${API_URL}/calidad`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(payload),
       });
 

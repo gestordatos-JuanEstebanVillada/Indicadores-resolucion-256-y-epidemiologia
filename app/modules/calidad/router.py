@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 
 from app.models import IntranetCalidad, IntranetCalidadVersion
+from app.modules.auditoria.dependencies import get_audit_actor
+from app.modules.auditoria.service import registrar_auditoria
 
 from app.modules.calidad.constants import MODULO_RESOLUCION_256
 from app.modules.calidad.indicator_math import calculate_indicator_value, get_multiplier
@@ -90,6 +92,16 @@ def _apply_rows(
     )
 
     for row in rows:
+        if row.month not in MONTH_NAMES:
+            continue
+        name = MONTH_NAMES[row.month]
+        setattr(
+            quality,
+            f"requiere_plan_{name}",
+            _normalize_requiere_plan(getattr(row, "requiere_plan", None)),
+        )
+
+    for row in rows:
 
         if start_month <= row.month <= 12 and row.month in MONTH_NAMES:
 
@@ -107,12 +119,6 @@ def _apply_rows(
             )
 
             setattr(quality, f"indicador_{name}", indicador_valor)
-
-            setattr(
-                quality,
-                f"requiere_plan_{name}",
-                _normalize_requiere_plan(getattr(row, "requiere_plan", None)),
-            )
 
 
 def _clear_rows(quality: IntranetCalidad, start_month: int, end_month: int):
@@ -709,7 +715,11 @@ def listar_indicadores(
 
 @router.delete("/indicadores/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
 
-def eliminar_indicador(version_id: int, db: Session = Depends(get_db)):
+def eliminar_indicador(
+    version_id: int,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
 
     version = db.get(IntranetCalidadVersion, version_id)
 
@@ -735,6 +745,13 @@ def eliminar_indicador(version_id: int, db: Session = Depends(get_db)):
 
         db.delete(quality)
 
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="DELETE",
+            modulo="INDICADORES",
+            detalle=f"Eliminó indicador legacy id={quality.id} (Resolución 256 / EPIDEMIOLOGIA)",
+        )
         db.commit()
 
         return None
@@ -781,6 +798,13 @@ def eliminar_indicador(version_id: int, db: Session = Depends(get_db)):
 
             db.delete(quality)
 
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="DELETE",
+            modulo="INDICADORES",
+            detalle=f"Eliminó indicador calidad_id={version.calidad_id}, versión id={version_id}",
+        )
         db.commit()
 
         return None
@@ -797,6 +821,14 @@ def eliminar_indicador(version_id: int, db: Session = Depends(get_db)):
 
         previous.mes_fin = following.mes_inicio - 1 if following else 12
 
+    nombre = (quality.indicador if quality else None) or f"versión {version_id}"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="DELETE",
+        modulo="INDICADORES",
+        detalle=f"Eliminó versión de indicador «{nombre}» (id versión {version_id})",
+    )
     db.commit()
 
     return None
@@ -807,7 +839,23 @@ def eliminar_indicador(version_id: int, db: Session = Depends(get_db)):
 
 @router.put("/indicadores/{version_id}", response_model=IndicadorVersionOut)
 
-def editar_indicador(version_id: int, payload: IndicadorVersionUpdate, db: Session = Depends(get_db)):
+def editar_indicador(
+    version_id: int,
+    payload: IndicadorVersionUpdate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
+
+    if payload.rows:
+        plan_flags = {
+            row.month: _normalize_requiere_plan(getattr(row, "requiere_plan", None))
+            for row in payload.rows
+            if row.month in MONTH_NAMES
+        }
+        print(
+            f"[PUT /indicadores/{version_id}] requiere_plan por mes: {plan_flags}",
+            flush=True,
+        )
 
     update_data = payload.model_dump(exclude_unset=True, exclude={"rows"})
 
@@ -860,6 +908,13 @@ def editar_indicador(version_id: int, payload: IndicadorVersionUpdate, db: Sessi
 
         ))
 
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="PUT",
+            modulo="INDICADORES",
+            detalle=f"Editó indicador «{payload.indicador or quality.indicador}» (legacy id={quality.id})",
+        )
         db.commit()
 
         return _legacy_quality_to_dict(quality)
@@ -890,6 +945,14 @@ def editar_indicador(version_id: int, payload: IndicadorVersionUpdate, db: Sessi
         ),
     )
 
+    nombre = payload.indicador or version.indicador or f"versión {version_id}"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="PUT",
+        modulo="INDICADORES",
+        detalle=f"Editó indicador «{nombre}» (versión id={version_id})",
+    )
     db.commit()
 
     return _version_to_dict(version, quality)
@@ -900,7 +963,12 @@ def editar_indicador(version_id: int, payload: IndicadorVersionUpdate, db: Sessi
 
 @router.post("/indicadores/{calidad_id}/versiones", response_model=IndicadorVersionOut, status_code=201)
 
-def crear_version(calidad_id: int, payload: IndicadorVersionCreate, db: Session = Depends(get_db)):
+def crear_version(
+    calidad_id: int,
+    payload: IndicadorVersionCreate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
 
     calidad = db.get(IntranetCalidad, calidad_id)
 
@@ -992,6 +1060,16 @@ def crear_version(calidad_id: int, payload: IndicadorVersionCreate, db: Session 
 
     db.add(version)
 
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion="POST",
+        modulo="INDICADORES",
+        detalle=(
+            f"Nueva versión desde mes {payload.mes_inicio} para indicador "
+            f"«{payload.indicador or calidad.indicador}» (calidad_id={calidad_id})"
+        ),
+    )
     db.commit()
 
     db.refresh(version)
@@ -1004,12 +1082,29 @@ def crear_version(calidad_id: int, payload: IndicadorVersionCreate, db: Session 
 
 @router.post("/calidad", status_code=201)
 
-def crear_calidad(payload: CalidadCreate, db: Session = Depends(get_db)):
+def crear_calidad(
+    payload: CalidadCreate,
+    db: Session = Depends(get_db),
+    actor: str = Depends(get_audit_actor),
+):
 
-    return upsert_calidad_from_excel_payload(
+    result = upsert_calidad_from_excel_payload(
         db,
         payload,
         default_modulo=MODULO_RESOLUCION_256,
     )
+    accion = "PUT" if result.get("updated") else "POST"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion=accion,
+        modulo="INDICADORES",
+        detalle=(
+            f"{'Actualizó' if accion == 'PUT' else 'Creó'} indicador «{payload.indicador}» "
+            f"año {payload.year} (Resolución 256)"
+        ),
+    )
+    db.commit()
+    return result
 
 

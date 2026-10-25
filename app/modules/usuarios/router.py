@@ -13,6 +13,7 @@ from app.modules.usuarios.schemas import (
     UsuarioCreate,
     UsuarioListOut,
 )
+from app.modules.auditoria.dependencies import get_audit_actor
 from app.modules.usuarios.service import (
     asegurar_login_disponible_para_creacion,
     crear_usuario_con_rol,
@@ -58,6 +59,7 @@ def crear_usuario(
     payload: UsuarioCreate,
     db: Session = Depends(get_db),
     _: dict = Depends(get_current_admin_user),
+    actor: str = Depends(get_audit_actor),
 ):
     login = normalize_login(payload.usuario)
     asegurar_login_disponible_para_creacion(
@@ -70,6 +72,7 @@ def crear_usuario(
         usuario=login,
         contrasena=payload.contrasena,
         rol=payload.rol,
+        actor=actor,
     )
     return _usuario_to_out(user, rol_row.rol)
 
@@ -130,6 +133,7 @@ def revocar_acceso(
     user_id: int,
     db: Session = Depends(get_db),
     admin: dict = Depends(get_current_admin_user),
+    actor: str = Depends(get_audit_actor),
 ):
     admin_id = admin.get("id")
     if admin_id is not None and user_id == admin_id:
@@ -138,5 +142,5 @@ def revocar_acceso(
             detail="No puede eliminar su propio usuario",
         )
 
-    eliminar_acceso_y_usuario(db, usuario_id=user_id)
+    eliminar_acceso_y_usuario(db, usuario_id=user_id, actor=actor)
     return None

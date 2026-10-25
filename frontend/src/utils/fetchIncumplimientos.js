@@ -1,16 +1,34 @@
 import { API_URL, apiFetch } from "../config/api";
+import { getUserRol, ROLES } from "./authRoles";
 import {
   MODULO_EPIDEMIOLOGIA,
   MODULO_RESOLUCION_256,
 } from "./moduleConstants";
 
+function modulosPermitidosPorRol() {
+  const rol = getUserRol();
+  if (rol === ROLES.ADMIN) {
+    return [MODULO_RESOLUCION_256, MODULO_EPIDEMIOLOGIA];
+  }
+  if (rol === ROLES.RESOLUCION_256) {
+    return [MODULO_RESOLUCION_256];
+  }
+  if (rol === ROLES.EPIDEMIOLOGIA) {
+    return [MODULO_EPIDEMIOLOGIA];
+  }
+  return [];
+}
+
 export function incumplimientoKey(alert) {
   return `${alert.calidad_id}-${alert.year}-${alert.mes}`;
 }
 
-/** Incidencias sin plan en ambos módulos (equivalente a modulo=Todos). */
+/** Incidencias sin plan, según módulos permitidos por rol (ADMIN: ambos). */
 export async function fetchAllIncumplimientos() {
-  const modules = [MODULO_RESOLUCION_256, MODULO_EPIDEMIOLOGIA];
+  const modules = modulosPermitidosPorRol();
+  if (modules.length === 0) {
+    return [];
+  }
   const responses = await Promise.all(
     modules.map((modulo) =>
       apiFetch(
