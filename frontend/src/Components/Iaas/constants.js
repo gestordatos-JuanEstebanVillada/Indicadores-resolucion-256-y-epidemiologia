@@ -1,7 +1,4 @@
-import { API_ORIGIN } from "../../config/api.js";
-
-/** Base del backend sin sufijo /api (formularios usan `${API_URL}/api/...`). */
-export const API_URL = API_ORIGIN;
+export { API_URL } from "../../config/api.js";
 
 export const months = [
   { id: 1, name: "ENERO" },
