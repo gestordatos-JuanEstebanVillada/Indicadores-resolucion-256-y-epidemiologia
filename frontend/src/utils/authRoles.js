@@ -22,14 +22,46 @@ export function getUserRol() {
   );
 }
 
-export function canAccessResolucion256() {
-  const rol = getUserRol();
+function hasCalidadRol(rol) {
+  return (
+    rol === ROLES.ADMIN ||
+    rol === ROLES.RESOLUCION_256 ||
+    rol === ROLES.EPIDEMIOLOGIA
+  );
+}
+
+/** Ver menú y datos (lectura) de Resolución 256. */
+export function canViewResolucion256(rolOverride) {
+  const rol = rolOverride ?? getUserRol();
+  return hasCalidadRol(rol);
+}
+
+/** Ver menú y datos (lectura) de Epidemiología / IAAS. */
+export function canViewEpidemiologia(rolOverride) {
+  const rol = rolOverride ?? getUserRol();
+  return hasCalidadRol(rol);
+}
+
+/** Crear, editar o eliminar en Resolución 256. */
+export function canMutateResolucion256(rolOverride) {
+  const rol = rolOverride ?? getUserRol();
   return rol === ROLES.ADMIN || rol === ROLES.RESOLUCION_256;
 }
 
-export function canAccessEpidemiologia() {
-  const rol = getUserRol();
+/** Crear, editar o eliminar en Epidemiología / IAAS. */
+export function canMutateEpidemiologia(rolOverride) {
+  const rol = rolOverride ?? getUserRol();
   return rol === ROLES.ADMIN || rol === ROLES.EPIDEMIOLOGIA;
+}
+
+/** @deprecated Usar canViewResolucion256 */
+export function canAccessResolucion256() {
+  return canViewResolucion256();
+}
+
+/** @deprecated Usar canViewEpidemiologia */
+export function canAccessEpidemiologia() {
+  return canViewEpidemiologia();
 }
 
 export function canAccessAdmin() {

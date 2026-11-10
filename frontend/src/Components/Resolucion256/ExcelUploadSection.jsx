@@ -7,6 +7,7 @@ export default function ExcelUploadSection({
   onBulkSave,
   parsedIndicatorsCount,
   loading,
+  readOnly = false,
 }) {
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
@@ -31,34 +32,38 @@ export default function ExcelUploadSection({
             Descargar plantilla
           </button>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white hover:bg-gray-800 text-sm font-medium"
-          >
-            <Upload size={17} />
-            Cargar Excel
-          </button>
+          {!readOnly ? (
+            <>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 text-white hover:bg-gray-800 text-sm font-medium"
+              >
+                <Upload size={17} />
+                Cargar Excel
+              </button>
 
-          {parsedIndicatorsCount > 1 && (
-            <button
-              type="button"
-              onClick={onBulkSave}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pink-600 text-white hover:bg-pink-700 disabled:opacity-60 text-sm font-medium"
-            >
-              <Save size={17} />
-              Guardar todos ({parsedIndicatorsCount})
-            </button>
-          )}
+              {parsedIndicatorsCount > 1 && (
+                <button
+                  type="button"
+                  onClick={onBulkSave}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pink-600 text-white hover:bg-pink-700 disabled:opacity-60 text-sm font-medium"
+                >
+                  <Save size={17} />
+                  Guardar todos ({parsedIndicatorsCount})
+                </button>
+              )}
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={onExcelUpload}
-            className="hidden"
-          />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={onExcelUpload}
+                className="hidden"
+              />
+            </>
+          ) : null}
         </div>
       </div>
     </div>

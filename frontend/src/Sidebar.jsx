@@ -17,11 +17,11 @@ import {
 } from "lucide-react";
 
 import { logoLiga50 } from "./assets/images.js";
+import { useAuth } from "./context/AuthContext";
 import {
   canAccessAdmin,
-  canAccessEpidemiologia,
-  canAccessResolucion256,
-  clearAuthSession,
+  canViewEpidemiologia,
+  canViewResolucion256,
 } from "./utils/authRoles";
 
 const moduleItems = [
@@ -92,13 +92,14 @@ export default function Sidebar() {
   const [openMenus, setOpenMenus] = useState({});
 
   const navigate = useNavigate();
+  const { clearSession, rol } = useAuth();
 
   const visibleModuleItems = moduleItems.filter((item) => {
     if (item.name === "Resolución 256") {
-      return canAccessResolucion256();
+      return canViewResolucion256(rol);
     }
     if (item.name === "Infecciones") {
-      return canAccessEpidemiologia();
+      return canViewEpidemiologia(rol);
     }
     return true;
   });
@@ -116,8 +117,8 @@ export default function Sidebar() {
   };
 
   function logout() {
-    clearAuthSession();
-    navigate("/");
+    clearSession();
+    navigate("/", { replace: true });
   }
 
   function renderNavItem(item) {

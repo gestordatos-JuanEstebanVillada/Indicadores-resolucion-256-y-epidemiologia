@@ -19,6 +19,10 @@ from app.modules.calidad.router import (
 )
 from app.modules.auditoria.dependencies import get_audit_actor
 from app.modules.auditoria.service import registrar_auditoria
+from app.modules.auth.permissions import (
+    require_escritura_epidemiologia,
+    require_lectura_indicadores,
+)
 from app.modules.calidad.schemas import (
     CalidadCreate,
     IndicadorVersionCreate,
@@ -58,7 +62,10 @@ def _ensure_epidemiologia_access(
 
 
 @router.get("/iaas/indicadores", response_model=list[IndicadorVersionOut])
-def listar_indicadores_iaas(db: Session = Depends(get_db)):
+def listar_indicadores_iaas(
+    db: Session = Depends(get_db),
+    _user: dict = Depends(require_lectura_indicadores),
+):
     from app.modules.calidad.router import listar_indicadores
 
     return listar_indicadores(modulo=MODULO_EPIDEMIOLOGIA, db=db)
@@ -69,6 +76,7 @@ def eliminar_indicador_iaas(
     version_id: int,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_epidemiologia),
 ):
     version = db.get(IntranetCalidadVersion, version_id)
     if version is None:
@@ -149,6 +157,7 @@ def editar_indicador_iaas(
     payload: IndicadorVersionUpdate,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_epidemiologia),
 ):
     version = db.get(IntranetCalidadVersion, version_id)
     if version is None:
@@ -231,6 +240,7 @@ def crear_version_iaas(
     payload: IndicadorVersionCreate,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_epidemiologia),
 ):
     calidad = db.get(IntranetCalidad, calidad_id)
     if calidad is None:
@@ -303,6 +313,7 @@ def crear_iaas(
     payload: CalidadCreate,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_epidemiologia),
 ):
     result = upsert_calidad_from_excel_payload(
         db,

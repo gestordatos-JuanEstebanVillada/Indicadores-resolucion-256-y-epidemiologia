@@ -5,38 +5,32 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 
 import NotificationBell from "./Components/Notifications/NotificationBell";
-
-
-
-function getDisplayName() {
-
-  const nombres = localStorage.getItem("nombres")?.trim();
-
-  if (nombres) {
-
-    return nombres.split(/\s+/)[0];
-
-  }
-
-  const username = localStorage.getItem("username")?.trim();
-
-  if (username) {
-
-    return username;
-
-  }
-
-  return "Usuario";
-
-}
-
-
+import { useAuth } from "./context/AuthContext";
 
 export default function Dashboard() {
 
   const location = useLocation();
+  const { ready, nombres, username } = useAuth();
 
-  const firstName = getDisplayName();
+  const firstName = (() => {
+    const name = (nombres || "").trim();
+    if (name) {
+      return name.split(/\s+/)[0];
+    }
+    const user = (username || "").trim();
+    if (user) {
+      return user;
+    }
+    return "Usuario";
+  })();
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f6f7f9] text-sm text-gray-600">
+        Cargando sesión…
+      </div>
+    );
+  }
 
 
 

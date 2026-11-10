@@ -27,6 +27,8 @@ import {
   MODULO_RESOLUCION_256,
   normalizeObservatorioForPayload,
 } from "./utils/moduleConstants";
+import { useAuth } from "./context/AuthContext";
+import { canMutateResolucion256 } from "./utils/authRoles";
 import {
   extractYearFromFilename,
   indicadorToApiPayload,
@@ -39,6 +41,9 @@ import {
 
 export default function Resolucion256() {
   const navigate = useNavigate();
+  const { rol } = useAuth();
+  const canEdit = canMutateResolucion256(rol);
+  const readOnly = !canEdit;
   const fileInputRef = useRef(null);
 
   const [indicador, setIndicador] = useState(
@@ -593,7 +598,13 @@ export default function Resolucion256() {
         onBack={() => navigate("/app")}
       />
 
-      <form onSubmit={handleSubmit}>
+      {readOnly ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Modo solo lectura: puede consultar el formulario, pero no cargar ni guardar datos de Resolución 256.
+        </p>
+      ) : null}
+
+      <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}>
         <ExcelUploadSection
           fileInputRef={fileInputRef}
           onDownloadTemplate={downloadTemplate}
@@ -601,6 +612,7 @@ export default function Resolucion256() {
           onBulkSave={handleBulkSave}
           parsedIndicatorsCount={parsedIndicators.length}
           loading={loading}
+          readOnly={readOnly}
         />
 
         <IndicatorInfoSection
@@ -630,7 +642,8 @@ export default function Resolucion256() {
 
         <FormActions
           loading={loading}
-          onCancel={() => navigate("/app/pacientes")}
+          readOnly={readOnly}
+          onCancel={() => navigate("/app")}
         />
       </form>
     </div>

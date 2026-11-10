@@ -15,6 +15,8 @@ import {
   months,
 } from "./Components/Iaas/constants";
 import { apiFetch } from "./config/api";
+import { useAuth } from "./context/AuthContext";
+import { canMutateEpidemiologia } from "./utils/authRoles";
 import {
   buildPlantillaUploadSummary,
   buildTableroUploadSummary,
@@ -38,6 +40,9 @@ import {
 } from "./utils/parseIaasExcel";
 export default function IaasForm() {
   const navigate = useNavigate();
+  const { rol } = useAuth();
+  const canEdit = canMutateEpidemiologia(rol);
+  const readOnly = !canEdit;
   const fileInputRef = useRef(null);
 
   const [indicador, setIndicador] = useState("");
@@ -523,7 +528,13 @@ export default function IaasForm() {
         onBack={() => navigate("/app")}
       />
 
-      <form onSubmit={handleSubmit}>
+      {readOnly ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Modo solo lectura: puede consultar el formulario, pero no cargar ni guardar datos de Epidemiología (IAAS).
+        </p>
+      ) : null}
+
+      <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}>
         <ExcelUploadSection
           fileInputRef={fileInputRef}
           onDownloadTemplate={downloadTemplate}
@@ -531,6 +542,7 @@ export default function IaasForm() {
           onBulkSave={handleBulkSave}
           parsedIndicatorsCount={parsedIndicators.length}
           loading={loading}
+          readOnly={readOnly}
         />
 
         <IndicatorInfoSection
@@ -560,6 +572,7 @@ export default function IaasForm() {
 
         <FormActions
           loading={loading}
+          readOnly={readOnly}
           onCancel={() => navigate("/app/infecciones/indicadores")}
         />
       </form>

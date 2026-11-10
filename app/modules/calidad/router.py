@@ -15,6 +15,10 @@ from app.database import get_db
 from app.models import IntranetCalidad, IntranetCalidadVersion
 from app.modules.auditoria.dependencies import get_audit_actor
 from app.modules.auditoria.service import registrar_auditoria
+from app.modules.auth.permissions import (
+    require_escritura_resolucion_256,
+    require_lectura_indicadores,
+)
 
 from app.modules.calidad.constants import MODULO_RESOLUCION_256
 from app.modules.calidad.indicator_math import calculate_indicator_value, get_multiplier
@@ -598,11 +602,9 @@ def _build_monthly_values(rows, formula="", indicador_name=""):
 @router.get("/indicadores", response_model=list[IndicadorVersionOut])
 
 def listar_indicadores(
-
     modulo: str | None = Query(None),
-
     db: Session = Depends(get_db),
-
+    _user: dict = Depends(require_lectura_indicadores),
 ):
 
     filter_modulo = _normalize_modulo(modulo) if modulo else None
@@ -719,6 +721,7 @@ def eliminar_indicador(
     version_id: int,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_resolucion_256),
 ):
 
     version = db.get(IntranetCalidadVersion, version_id)
@@ -844,6 +847,7 @@ def editar_indicador(
     payload: IndicadorVersionUpdate,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_resolucion_256),
 ):
 
     if payload.rows:
@@ -968,6 +972,7 @@ def crear_version(
     payload: IndicadorVersionCreate,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_resolucion_256),
 ):
 
     calidad = db.get(IntranetCalidad, calidad_id)
@@ -1086,6 +1091,7 @@ def crear_calidad(
     payload: CalidadCreate,
     db: Session = Depends(get_db),
     actor: str = Depends(get_audit_actor),
+    _user: dict = Depends(require_escritura_resolucion_256),
 ):
 
     result = upsert_calidad_from_excel_payload(

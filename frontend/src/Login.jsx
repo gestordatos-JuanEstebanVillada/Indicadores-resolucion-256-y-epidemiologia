@@ -1,13 +1,14 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_URL } from './config/api.js'
-import { persistAuthSession } from './utils/authRoles'
+import { useAuth } from './context/AuthContext'
 
 export default function Login(){
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
+  const { applySession } = useAuth()
 
   async function handleSubmit(e){
     e.preventDefault()
@@ -24,8 +25,8 @@ export default function Login(){
         return
       }
       const data = await res.json()
-      persistAuthSession(data)
-      navigate('/app')
+      applySession(data)
+      navigate('/app', { replace: true })
     }catch(err){
       setMessage('Usuario o contraseña incorrectos')
     }

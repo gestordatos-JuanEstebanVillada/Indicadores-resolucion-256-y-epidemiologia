@@ -25,3 +25,39 @@ export async function apiFetch(url, options = {}) {
     headers,
   });
 }
+
+/** Mensaje legible desde un Response !ok (FastAPI detail, etc.). */
+export async function readApiErrorMessage(
+  response,
+  fallback = "Error en la solicitud"
+) {
+  try {
+    const data = await response.json();
+    const detail = data?.detail;
+    if (typeof detail === "string") {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => item?.msg || JSON.stringify(item))
+        .join("; ");
+    }
+    return fallback;
+  } catch {
+    return `${fallback} (HTTP ${response.status})`;
+  }
+}
+
+/** La API de indicadores devuelve un array en la raíz del JSON. */
+export function ensureApiArray(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload && Array.isArray(payload.data)) {
+    return payload.data;
+  }
+  if (payload && Array.isArray(payload.items)) {
+    return payload.items;
+  }
+  return [];
+}

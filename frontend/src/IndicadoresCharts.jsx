@@ -21,7 +21,12 @@ import {
   toChartIndicatorDisplayValue,
 } from "./utils/formatIndicator";
 import IncidenciasIndicadorBadge from "./Components/IncidenciasIndicadorBadge";
-import { API_URL, apiFetch } from "./config/api.js";
+import {
+  API_URL,
+  apiFetch,
+  ensureApiArray,
+  readApiErrorMessage,
+} from "./config/api.js";
 import { INCUMPLIMIENTOS_REFRESH_EVENT } from "./utils/incumplimientosEvents";
 import { MODULO_RESOLUCION_256 } from "./utils/moduleConstants";
 
@@ -183,16 +188,29 @@ export default function IndicadoresCharts() {
       setError("");
 
       try {
-        const response = await fetch(
-          `${API_URL}/indicadores?modulo=${encodeURIComponent(MODULO_RESOLUCION_256)}`
-        );
+        const url = `${API_URL}/indicadores?modulo=${encodeURIComponent(MODULO_RESOLUCION_256)}`;
+        const response = await apiFetch(url);
 
         if (!response.ok) {
-          throw new Error("No se pudieron cargar los indicadores.");
+          const detail = await readApiErrorMessage(
+            response,
+            "No se pudieron cargar los indicadores."
+          );
+          console.error("[Gráficos R256] GET indicadores falló", {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            detail,
+          });
+          throw new Error(detail);
         }
 
-        setVersions(recalculateVersionsFromApi(await response.json()));
+        const payload = await response.json();
+        setVersions(
+          recalculateVersionsFromApi(ensureApiArray(payload))
+        );
       } catch (loadError) {
+        console.error("[Gráficos R256] loadVersions", loadError);
         setError(loadError.message || "Error al cargar los datos.");
       } finally {
         setLoading(false);

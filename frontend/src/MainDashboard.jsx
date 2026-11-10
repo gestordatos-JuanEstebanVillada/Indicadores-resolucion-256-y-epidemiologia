@@ -19,6 +19,7 @@ import {
 import { Bar, Doughnut } from "react-chartjs-2";
 
 import { API_URL, apiFetch } from "./config/api";
+import { useAuth } from "./context/AuthContext";
 import { fetchAllIncumplimientos } from "./utils/fetchIncumplimientos";
 import { INCUMPLIMIENTOS_REFRESH_EVENT } from "./utils/incumplimientosEvents";
 import {
@@ -115,6 +116,7 @@ function ChartEmpty({ message }) {
 }
 
 export default function MainDashboard() {
+  const { ready, authenticated, rol, token } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [r256Versions, setR256Versions] = useState([]);
   const [iaasVersions, setIaasVersions] = useState([]);
@@ -167,13 +169,16 @@ export default function MainDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!ready || !authenticated || !token) {
+      return;
+    }
     loadDashboard();
     function onRefresh() {
       loadDashboard();
     }
     window.addEventListener(INCUMPLIMIENTOS_REFRESH_EVENT, onRefresh);
     return () => window.removeEventListener(INCUMPLIMIENTOS_REFRESH_EVENT, onRefresh);
-  }, [loadDashboard]);
+  }, [loadDashboard, ready, authenticated, token, rol]);
 
   const countR256 = useMemo(
     () => countUniqueIndicadores(r256Versions),
@@ -288,7 +293,7 @@ export default function MainDashboard() {
     setOpenModule((current) => (current === moduleKey ? null : moduleKey));
   }
 
-  if (isLoading) {
+  if (!ready || !authenticated || isLoading) {
     return <DashboardSkeleton />;
   }
 

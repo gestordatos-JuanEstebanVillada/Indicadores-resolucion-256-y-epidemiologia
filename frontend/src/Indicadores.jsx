@@ -18,6 +18,8 @@ import {
   normalizeObservatorioForPayload,
 } from "./utils/moduleConstants";
 import { API_URL, apiFetch } from "./config/api.js";
+import { useAuth } from "./context/AuthContext";
+import { canMutateResolucion256 } from "./utils/authRoles";
 
 const months = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -86,6 +88,7 @@ function IndicatorRow({
   startNewVersion,
   setPreview,
   months,
+  canMutate,
 }) {
   const maxYear = Math.max(...group.map((v) => v.year).filter(Boolean));
   const [selectedYear, setSelectedYear] = useState(
@@ -157,28 +160,30 @@ function IndicatorRow({
 
           <td className="px-5 py-4">
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => startEditing(version)}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                <Edit3 size={15} /> Editar
-              </button>
-
+              {canMutate ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => startEditing(version)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <Edit3 size={15} /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startNewVersion(version)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-pink-600 px-3 py-2 text-xs font-medium text-white hover:bg-pink-700"
+                  >
+                    <Plus size={15} /> Nueva desde mes
+                  </button>
+                </>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setPreview(group)}
                 className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
               >
                 <Eye size={15} /> Vista previa
-              </button>
-
-              <button
-                type="button"
-                onClick={() => startNewVersion(version)}
-                className="inline-flex items-center gap-2 rounded-lg bg-pink-600 px-3 py-2 text-xs font-medium text-white hover:bg-pink-700"
-              >
-                <Plus size={15} /> Nueva desde mes
               </button>
             </div>
           </td>
@@ -189,6 +194,8 @@ function IndicatorRow({
 }
 
 export default function Indicadores() {
+  const { rol } = useAuth();
+  const canMutate = canMutateResolucion256(rol);
   const requierePlanSaveKeysRef = useRef(new Set());
   const [versions, setVersions] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -501,6 +508,11 @@ export default function Indicadores() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-gray-800">Indicadores</h2>
+        {!canMutate ? (
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Modo solo lectura en Resolución 256: puede ver vista previa y gráficos, no editar.
+          </p>
+        ) : null}
         <p className="mt-1 text-sm text-gray-500">
           Consulta y administra las versiones vigentes por periodo.
         </p>
@@ -551,6 +563,7 @@ export default function Indicadores() {
                     startNewVersion={startNewVersion}
                     setPreview={setPreview}
                     months={months}
+                    canMutate={canMutate}
                   />
                 ))}
               </tbody>
@@ -789,8 +802,14 @@ export default function Indicadores() {
                                 formula={version.formula}
                                 indicador={version.indicador}
                                 value={row.requiere_plan}
-                                onToggle={() =>
-                                  handlePreviewToggleRequierePlan(version, row.month)
+                                onToggle={
+                                  canMutate
+                                    ? () =>
+                                        handlePreviewToggleRequierePlan(
+                                          version,
+                                          row.month
+                                        )
+                                    : undefined
                                 }
                               />
                             </td>

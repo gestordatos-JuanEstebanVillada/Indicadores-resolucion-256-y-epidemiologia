@@ -1,4 +1,4 @@
-export { API_URL } from "../../config/api.js";
+  export { API_URL } from "../../config/api.js";
 
 export const months = [
   { id: 1, name: "ENERO" },

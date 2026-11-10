@@ -143,7 +143,12 @@ import {
   toChartIndicatorDisplayValue,
 } from "../../utils/formatIndicator";
 import IncidenciasIndicadorBadge from "../IncidenciasIndicadorBadge";
-import { API_URL, apiFetch } from "../../config/api.js";
+import {
+  API_URL,
+  apiFetch,
+  ensureApiArray,
+  readApiErrorMessage,
+} from "../../config/api.js";
 import { INCUMPLIMIENTOS_REFRESH_EVENT } from "../../utils/incumplimientosEvents";
 import { MODULO_EPIDEMIOLOGIA } from "../../utils/moduleConstants";
 
@@ -184,16 +189,29 @@ export default function IaasIndicadoresCharts() {
       setError("");
 
       try {
-        const response = await fetch(
-          `${API_URL}/indicadores?modulo=${encodeURIComponent(MODULO_EPIDEMIOLOGIA)}`
-        );
+        const url = `${API_URL}/iaas/indicadores`;
+        const response = await apiFetch(url);
 
         if (!response.ok) {
-          throw new Error("No se pudieron cargar los indicadores.");
+          const detail = await readApiErrorMessage(
+            response,
+            "No se pudieron cargar los indicadores."
+          );
+          console.error("[Gráficos IAAS] GET iaas/indicadores falló", {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            detail,
+          });
+          throw new Error(detail);
         }
 
-        setVersions(recalculateVersionsFromApi(await response.json()));
+        const payload = await response.json();
+        setVersions(
+          recalculateVersionsFromApi(ensureApiArray(payload))
+        );
       } catch (loadError) {
+        console.error("[Gráficos IAAS] loadVersions", loadError);
         setError(loadError.message || "Error al cargar los datos.");
       } finally {
         setLoading(false);
