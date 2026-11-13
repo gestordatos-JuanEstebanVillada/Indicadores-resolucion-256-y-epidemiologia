@@ -20,6 +20,7 @@ from app.modules.auth.schemas import AuthResponse, LoginRequest, UserInfo
 
 from app.modules.auth.exceptions import UsuarioInactivoError
 
+from app.modules.auth.calidad_roles_data import listar_filas_usuario
 from app.modules.auth.rbac import resolver_acceso_usuario, token_claims_desde_acceso
 
 
@@ -77,19 +78,29 @@ class AuthService:
 
 
     def _acceso_usuario(self, usuario: Usuario):
+        usuario_id = int(usuario.id)
+        filas = listar_filas_usuario(self._db, usuario_id)
+        if not filas:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "No tiene rol asignado en el sistema de indicadores "
+                    f"(login «{usuario.usuario or ''}», id {usuario_id}). "
+                    "En gestión de accesos asigne permisos a ese login institucional."
+                ),
+            )
 
         acceso = resolver_acceso_usuario(
-            self._db, usuario.id, username=usuario.usuario or ""
+            self._db,
+            usuario_id,
+            filas=filas,
+            username=usuario.usuario or "",
+            filtrar_modulos_huerfanos=False,
         )
-
         if acceso is None:
-
             raise HTTPException(
-
                 status_code=status.HTTP_403_FORBIDDEN,
-
-                detail="No tiene rol asignado en el sistema de Indicadores",
-
+                detail="No tiene rol asignado en el sistema de indicadores.",
             )
 
         return acceso

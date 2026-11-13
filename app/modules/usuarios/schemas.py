@@ -70,6 +70,19 @@ class UsuarioCreate(BaseModel):
     def normalize_usuario(cls, value: str) -> str:
         return value.strip()
 
+    @staticmethod
+    def _validar_login_institucional(usuario: str, nombres: str | None = None) -> str:
+        login = usuario.strip()
+        if len(login.split()) >= 3:
+            raise ValueError(
+                "Use el login de intranet (ej. VARROYAVE), no el nombre completo."
+            )
+        if nombres and login.upper() == nombres.strip().upper():
+            raise ValueError(
+                "El login no puede ser igual al nombre; use el usuario de intranet."
+            )
+        return login
+
     @field_validator("jerarquia")
     @classmethod
     def validate_jerarquia(cls, value: str) -> str:
@@ -77,6 +90,7 @@ class UsuarioCreate(BaseModel):
 
     @model_validator(mode="after")
     def validar_accesos(self):
+        self._validar_login_institucional(self.usuario, self.nombres)
         if self.jerarquia != JERARQUIA_GLOBAL and not self.accesos:
             raise ValueError("Debe seleccionar al menos un módulo")
         return self
@@ -90,7 +104,7 @@ class RolAssignCreate(BaseModel):
     @field_validator("usuario")
     @classmethod
     def normalize_usuario(cls, value: str) -> str:
-        return value.strip()
+        return UsuarioCreate._validar_login_institucional(value)
 
     @field_validator("jerarquia")
     @classmethod

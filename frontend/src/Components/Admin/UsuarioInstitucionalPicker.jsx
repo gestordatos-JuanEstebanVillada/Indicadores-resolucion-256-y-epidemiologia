@@ -88,7 +88,10 @@ export default function UsuarioInstitucionalPicker({
                   pick(user);
                 }}
               >
-                <span className="font-medium text-gray-800">{user.usuario}</span>
+                <span className="font-medium text-gray-800">
+                  {user.usuario}
+                  <span className="ml-2 font-normal text-pink-700">id {user.id}</span>
+                </span>
                 <span className="text-xs text-gray-500">{user.nombres}</span>
               </button>
             ))

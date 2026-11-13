@@ -10,8 +10,11 @@ from app.modules.auth.calidad_roles_data import (
     JERARQUIA_AREA,
     JERARQUIA_GLOBAL,
     JERARQUIA_USUARIO,
+    JERARQUIAS,
+    jerarquia_maxima_desde_filas,
     listar_filas_usuario,
     resolver_resumen_accesos,
+    usuario_tiene_acceso_indicadores,
 )
 from app.modules.modulos.maestro import filtrar_acceso_modulos_huerfanos
 
@@ -46,21 +49,49 @@ def resolver_acceso_desde_filas(
             modulos_edicion=[],
         )
     if not resumen.modulos:
-        if resumen.jerarquia in {JERARQUIA_AREA, JERARQUIA_USUARIO}:
+        jerarquia = jerarquia_maxima_desde_filas(filas) or resumen.jerarquia
+        if jerarquia in {JERARQUIA_GLOBAL, JERARQUIA_AREA, JERARQUIA_USUARIO}:
+            permite = (
+                1
+                if jerarquia in {JERARQUIA_GLOBAL, JERARQUIA_AREA}
+                else 0
+            )
             return AccesoUsuario(
-                jerarquia=resumen.jerarquia,
-                nombre_rol=resumen.jerarquia,
+                jerarquia=jerarquia,
+                nombre_rol=jerarquia,
+                es_admin_global=1 if jerarquia == JERARQUIA_GLOBAL else 0,
+                permite_edicion=permite,
+                modulos=[],
+                modulos_solo_lectura=[],
+                modulos_edicion=[],
+            )
+        if jerarquia and jerarquia in JERARQUIAS:
+            return AccesoUsuario(
+                jerarquia=jerarquia,
+                nombre_rol=jerarquia,
                 es_admin_global=0,
                 permite_edicion=0,
                 modulos=[],
                 modulos_solo_lectura=[],
                 modulos_edicion=[],
             )
-        return None
+        jerarquia = jerarquia_maxima_desde_filas(filas) or JERARQUIA_USUARIO
+        return AccesoUsuario(
+            jerarquia=jerarquia,
+            nombre_rol=jerarquia,
+            es_admin_global=0,
+            permite_edicion=1 if jerarquia == JERARQUIA_AREA else 0,
+            modulos=[],
+            modulos_solo_lectura=[],
+            modulos_edicion=[],
+        )
+    jerarquia = jerarquia_maxima_desde_filas(filas) or resumen.jerarquia
     permite = 1 if resumen.modulos_edicion else 0
+    if jerarquia == JERARQUIA_AREA and resumen.modulos_edicion:
+        permite = 1
     return AccesoUsuario(
-        jerarquia=resumen.jerarquia,
-        nombre_rol=resumen.jerarquia,
+        jerarquia=jerarquia,
+        nombre_rol=jerarquia,
         es_admin_global=0,
         permite_edicion=permite,
         modulos=resumen.modulos,
@@ -74,16 +105,22 @@ def resolver_acceso_usuario(
     usuario_id: int,
     filas: list[FilaCalidadRol] | None = None,
     username: str | None = None,
+    *,
+    filtrar_modulos_huerfanos: bool = False,
 ) -> AccesoUsuario | None:
     if filas is None:
-        filas = listar_filas_usuario(db, usuario_id)
+        filas = listar_filas_usuario(db, int(usuario_id))
+    if not usuario_tiene_acceso_indicadores(filas):
+        return None
     acceso = resolver_acceso_desde_filas(db, filas)
     if acceso is None:
         return None
+    if not filtrar_modulos_huerfanos:
+        return acceso
     return filtrar_acceso_modulos_huerfanos(
         db,
         acceso,
-        usuario_id=usuario_id,
+        usuario_id=int(usuario_id),
         username=username,
     )
 

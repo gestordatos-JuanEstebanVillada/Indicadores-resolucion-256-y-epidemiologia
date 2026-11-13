@@ -114,11 +114,12 @@ def filtrar_acceso_modulos_huerfanos(
         )
 
     if acceso.jerarquia in {JERARQUIA_AREA, JERARQUIA_USUARIO}:
+        permite = 1 if acceso.jerarquia == JERARQUIA_AREA else 0
         return AccesoUsuarioCls(
             jerarquia=acceso.jerarquia,
             nombre_rol=acceso.nombre_rol,
             es_admin_global=0,
-            permite_edicion=0,
+            permite_edicion=permite,
             modulos=[],
             modulos_solo_lectura=[],
             modulos_edicion=[],
