@@ -10,7 +10,11 @@ import toast from "react-hot-toast";
 import CrearModulo from "../../Components/Admin/CrearModulo";
 import ModalOverlay from "../../Components/ModalOverlay";
 import { API_URL, apiFetch, readApiErrorMessage } from "../../config/api";
-import { fetchModulosActivos, resolveModuloIcon } from "../../utils/modulosCatalog";
+import {
+  fetchModulosCatalog,
+  resolveModuloDeleteKey,
+  resolveModuloIcon,
+} from "../../utils/modulosCatalog";
 
 const emptyEdit = {
   nombre: "",
@@ -26,11 +30,12 @@ export default function GestionModulos() {
   const [usuariosModal, setUsuariosModal] = useState(null);
   const [usuariosModulo, setUsuariosModulo] = useState([]);
   const [usuariosLoading, setUsuariosLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const loadModulos = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchModulosActivos();
+      const data = await fetchModulosCatalog({ soloActivos: false });
       setModulos(data);
     } catch {
       setModulos([]);
@@ -71,19 +76,27 @@ export default function GestionModulos() {
       if (nuevo && nuevo !== editing.codigo) {
         body.codigo_nuevo = nuevo;
       }
+      const editKey = resolveModuloDeleteKey(editing);
+      if (!editKey) {
+        throw new Error(
+          "El módulo no tiene ID ni código válido; recargue la página."
+        );
+      }
       const response = await apiFetch(
-        `${API_URL}/modulos/codigo/${encodeURIComponent(editing.codigo)}`,
+        `${API_URL}/modulos/${encodeURIComponent(editKey)}`,
         {
           method: "PUT",
           body: JSON.stringify(body),
         }
       );
       if (!response.ok) {
-        throw new Error(
-          await readApiErrorMessage(response, "No se pudo actualizar el módulo.")
+        const message = await readApiErrorMessage(
+          response,
+          "No se pudo actualizar el módulo."
         );
+        throw new Error(message);
       }
-      toast.success("Módulo actualizado");
+      toast.success("Módulo actualizado en Oracle");
       closeEdit();
       await loadModulos();
     } catch (error) {
@@ -91,28 +104,50 @@ export default function GestionModulos() {
     }
   }
 
-  async function removeModulo(modulo) {
+  async function handleDelete(modulo) {
+    setDeleteError("");
     if (
       !window.confirm(
-        `¿Marcar «${modulo.nombre}» como inactivo en el catálogo? Los datos históricos en Oracle no se borran.`
+        `¿Eliminar permanentemente el módulo «${modulo.nombre}» (${modulo.codigo}) del catálogo?`
       )
     ) {
       return;
     }
+
+    const deleteKey = resolveModuloDeleteKey(modulo);
+    if (!deleteKey) {
+      const msg =
+        "No se puede eliminar: el módulo no tiene ID ni código válido en el catálogo.";
+      setDeleteError(msg);
+      toast.error(msg);
+      return;
+    }
+
     try {
       const response = await apiFetch(
-        `${API_URL}/modulos/codigo/${encodeURIComponent(modulo.codigo)}`,
+        `${API_URL}/modulos/${encodeURIComponent(deleteKey)}`,
         { method: "DELETE" }
       );
-      if (!response.ok && response.status !== 204) {
-        throw new Error(
-          await readApiErrorMessage(response, "No se pudo eliminar el módulo.")
+
+      if (response.status === 204 || response.ok) {
+        setModulos((prev) =>
+          prev.filter((item) => resolveModuloDeleteKey(item) !== deleteKey)
         );
+        toast.success("Módulo eliminado del catálogo");
+        await loadModulos();
+        return;
       }
-      toast.success("Módulo eliminado del catálogo");
-      await loadModulos();
+
+      const message = await readApiErrorMessage(
+        response,
+        "No se pudo eliminar el módulo."
+      );
+      setDeleteError(message);
+      toast.error(message);
     } catch (error) {
-      toast.error(error.message || "Error al eliminar.");
+      const message = error?.message || "Error al eliminar el módulo.";
+      setDeleteError(message);
+      toast.error(message);
     }
   }
 
@@ -152,6 +187,15 @@ export default function GestionModulos() {
 
       <CrearModulo onCreated={loadModulos} />
 
+      {deleteError ? (
+        <p
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          role="alert"
+        >
+          {deleteError}
+        </p>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-gray-500">Cargando módulos…</p>
       ) : (
@@ -160,7 +204,7 @@ export default function GestionModulos() {
             const Icon = resolveModuloIcon(modulo.icono);
             return (
               <article
-                key={modulo.codigo}
+                key={modulo.id ?? modulo.codigo}
                 className="flex flex-col rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
               >
                 <div className="flex items-start gap-3">
@@ -169,7 +213,10 @@ export default function GestionModulos() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-gray-900">{modulo.nombre}</h3>
-                    <p className="text-xs font-mono text-gray-500">{modulo.codigo}</p>
+                    <p className="text-xs font-mono text-gray-500">
+                      {modulo.codigo}
+                      {modulo.id != null ? ` · ID ${modulo.id}` : ""}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -191,7 +238,7 @@ export default function GestionModulos() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => removeModulo(modulo)}
+                    onClick={() => handleDelete(modulo)}
                     className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
                   >
                     <Trash2 size={14} />

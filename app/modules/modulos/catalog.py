@@ -1,33 +1,20 @@
-"""Catálogo de módulos sin tabla INTRANET_MODULOS (config + DISTINCT en calidad)."""
+"""Catálogo de módulos en INTRANET_MODULOS (Oracle)."""
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from pathlib import Path
 
-from sqlalchemy import distinct, select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.models import IntranetCalidad, IntranetCalidadRol, IntranetCalidadVersion, IntranetPlanMejora
+from app.models import (
+    IntranetCalidad,
+    IntranetCalidadRol,
+    IntranetCalidadVersion,
+    IntranetModulo,
+    IntranetPlanMejora,
+)
 
-_CATALOG_DIR = Path(__file__).resolve().parent
-_EXTRA_JSON = _CATALOG_DIR / "modulos_extra.json"
-_OVERRIDES_JSON = _CATALOG_DIR / "modulos_overrides.json"
-
-MODULOS_BASE: list[dict[str, str]] = [
-    {
-        "codigo": "RESOLUCION_256",
-        "nombre": "Resolución 256",
-        "icono": "FileSpreadsheet",
-        "estado": "ACTIVO",
-    },
-    {
-        "codigo": "EPIDEMIOLOGIA",
-        "nombre": "Epidemiología / IAAS",
-        "icono": "Activity",
-        "estado": "ACTIVO",
-    },
-]
+_ESTADOS_INACTIVOS = frozenset({"INACTIVO", "0", "I", "N"})
 
 
 @dataclass(frozen=True)
@@ -39,66 +26,22 @@ class ModuloCatalogo:
     estado: str | None
 
 
-def _load_extra() -> list[dict[str, str]]:
-    if not _EXTRA_JSON.is_file():
-        return []
-    try:
-        raw = json.loads(_EXTRA_JSON.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
-    if not isinstance(raw, list):
-        return []
-    return [item for item in raw if isinstance(item, dict) and item.get("codigo")]
+def _normalize_codigo(value: str | None) -> str | None:
+    if value is None:
+        return None
+    raw = value.strip().upper().replace(" ", "_")
+    return raw or None
 
 
-def _save_extra(entries: list[dict[str, str]]) -> None:
-    _EXTRA_JSON.write_text(
-        json.dumps(entries, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+def _row_to_catalogo(row: IntranetModulo) -> ModuloCatalogo:
+    codigo = _normalize_codigo(row.codigo) or (row.codigo or "").strip()
+    return ModuloCatalogo(
+        id=int(row.id),
+        codigo=codigo,
+        nombre=(row.nombre or codigo).strip(),
+        icono=(row.icono or "Folder").strip() if row.icono else "Folder",
+        estado=(row.estado or "ACTIVO").strip().upper(),
     )
-
-
-def _load_overrides() -> dict[str, dict[str, str]]:
-    if not _OVERRIDES_JSON.is_file():
-        return {}
-    try:
-        raw = json.loads(_OVERRIDES_JSON.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-    return raw if isinstance(raw, dict) else {}
-
-
-def _save_overrides(data: dict[str, dict[str, str]]) -> None:
-    _OVERRIDES_JSON.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-
-
-def _distinct_modulos_calidad(db: Session) -> list[dict[str, str]]:
-    rows = db.scalars(
-        select(distinct(IntranetCalidad.modulo)).where(
-            IntranetCalidad.modulo.isnot(None)
-        )
-    ).all()
-    result: list[dict[str, str]] = []
-    for value in rows:
-        codigo = (value or "").strip().upper().replace(" ", "_")
-        if not codigo:
-            continue
-        result.append(
-            {
-                "codigo": codigo,
-                "nombre": codigo.replace("_", " ").title(),
-                "icono": "Folder",
-                "estado": "ACTIVO",
-            }
-        )
-    return result
-
-
-def _synthetic_id(codigo: str) -> int:
-    return abs(hash(codigo.upper())) % 1_000_000_000
 
 
 def listar_modulos_catalogo(
@@ -106,43 +49,16 @@ def listar_modulos_catalogo(
     *,
     solo_activos: bool = True,
 ) -> list[ModuloCatalogo]:
-    from app.modules.modulos.maestro import listar_modulos_desde_maestro
-
-    maestro = listar_modulos_desde_maestro(db, solo_activos=solo_activos)
-    if maestro is not None:
-        return maestro
-
-    overrides = _load_overrides()
-    merged: dict[str, dict[str, str]] = {}
-    for item in MODULOS_BASE + _load_extra() + _distinct_modulos_calidad(db):
-        codigo = (item.get("codigo") or "").strip().upper().replace(" ", "_")
-        if not codigo:
-            continue
-        ov = overrides.get(codigo, {})
-        merged[codigo] = {
-            "codigo": codigo,
-            "nombre": (ov.get("nombre") or item.get("nombre") or codigo).strip(),
-            "icono": (ov.get("icono") or item.get("icono") or "Folder").strip(),
-            "estado": (ov.get("estado") or item.get("estado") or "ACTIVO")
-            .strip()
-            .upper(),
-        }
-
+    rows = db.scalars(
+        select(IntranetModulo).order_by(IntranetModulo.nombre)
+    ).all()
     out: list[ModuloCatalogo] = []
-    for codigo in sorted(merged.keys(), key=lambda c: merged[c]["nombre"].lower()):
-        row = merged[codigo]
-        estado = row["estado"]
-        if solo_activos and estado in {"INACTIVO", "0", "I", "N"}:
+    for row in rows:
+        item = _row_to_catalogo(row)
+        if solo_activos and item.estado in _ESTADOS_INACTIVOS:
             continue
-        out.append(
-            ModuloCatalogo(
-                id=_synthetic_id(codigo),
-                codigo=codigo,
-                nombre=row["nombre"],
-                icono=row["icono"],
-                estado=estado,
-            )
-        )
+        out.append(item)
+    out.sort(key=lambda m: m.nombre.lower())
     return out
 
 
@@ -150,79 +66,54 @@ def obtener_modulo_catalogo(
     db: Session,
     modulo_codigo: str,
 ) -> ModuloCatalogo | None:
-    codigo = (modulo_codigo or "").strip().upper().replace(" ", "_")
-    for item in listar_modulos_catalogo(db, solo_activos=False):
-        if item.codigo == codigo:
-            return item
-    return None
+    codigo = _normalize_codigo(modulo_codigo)
+    if not codigo:
+        return None
+    row = db.scalar(
+        select(IntranetModulo).where(func.upper(IntranetModulo.codigo) == codigo)
+    )
+    if row is None:
+        return None
+    return _row_to_catalogo(row)
 
 
-def agregar_modulo_extra(
-    *,
-    codigo: str,
-    nombre: str,
-    icono: str | None = "Folder",
-    estado: str = "ACTIVO",
-) -> dict[str, str]:
-    entry = {
-        "codigo": codigo.strip().upper().replace(" ", "_"),
-        "nombre": nombre.strip(),
-        "icono": (icono or "Folder").strip(),
-        "estado": (estado or "ACTIVO").strip().upper(),
-    }
-    extra = _load_extra()
-    if any(e.get("codigo") == entry["codigo"] for e in extra):
-        raise ValueError("duplicate")
-    extra.append(entry)
-    _save_extra(extra)
-    return entry
+def obtener_modulo_por_id(db: Session, modulo_id: int) -> IntranetModulo | None:
+    if modulo_id is None:
+        return None
+    return db.scalar(select(IntranetModulo).where(IntranetModulo.id == int(modulo_id)))
 
 
-def actualizar_modulo_catalogo(
-    codigo: str,
-    *,
-    nombre: str | None = None,
-    icono: str | None = None,
-    estado: str | None = None,
-) -> None:
-    codigo = codigo.strip().upper().replace(" ", "_")
-    extra = _load_extra()
-    found_in_extra = False
-    for entry in extra:
-        if (entry.get("codigo") or "").upper() == codigo:
-            if nombre is not None:
-                entry["nombre"] = nombre.strip()
-            if icono is not None:
-                entry["icono"] = icono.strip()
-            if estado is not None:
-                entry["estado"] = estado.strip().upper()
-            found_in_extra = True
-            break
-    if found_in_extra:
-        _save_extra(extra)
-        return
-
-    overrides = _load_overrides()
-    row = overrides.setdefault(codigo, {})
-    if nombre is not None:
-        row["nombre"] = nombre.strip()
-    if icono is not None:
-        row["icono"] = icono.strip()
-    if estado is not None:
-        row["estado"] = estado.strip().upper()
-    _save_overrides(overrides)
+def resolver_modulo_desde_identificador(
+    db: Session,
+    identificador: str,
+) -> IntranetModulo | None:
+    """Resuelve fila por ID numérico o por CODIGO."""
+    clave = (identificador or "").strip()
+    if not clave:
+        return None
+    if clave.isdigit():
+        row = obtener_modulo_por_id(db, int(clave))
+        if row is not None:
+            return row
+    codigo = _normalize_codigo(clave)
+    if not codigo:
+        return None
+    return db.scalar(
+        select(IntranetModulo).where(func.upper(IntranetModulo.codigo) == codigo)
+    )
 
 
-def eliminar_modulo_del_catalogo(codigo: str) -> None:
-    codigo = codigo.strip().upper().replace(" ", "_")
-    extra = [e for e in _load_extra() if (e.get("codigo") or "").upper() != codigo]
-    _save_extra(extra)
-    overrides = _load_overrides()
-    if codigo in overrides:
-        overrides[codigo]["estado"] = "INACTIVO"
-    else:
-        overrides[codigo] = {"estado": "INACTIVO"}
-    _save_overrides(overrides)
+def modulo_tiene_usuarios_con_acceso(db: Session, codigo: str) -> bool:
+    norm = _normalize_codigo(codigo)
+    if not norm:
+        return False
+    modulos_en_roles = db.scalars(
+        select(IntranetCalidadRol.modulo).where(IntranetCalidadRol.modulo.isnot(None))
+    ).all()
+    for raw in modulos_en_roles:
+        if _normalize_codigo(raw) == norm:
+            return True
+    return False
 
 
 def propagar_codigo_modulo_en_oracle(
@@ -230,47 +121,27 @@ def propagar_codigo_modulo_en_oracle(
     codigo_anterior: str,
     codigo_nuevo: str,
 ) -> None:
-    anterior = codigo_anterior.strip().upper().replace(" ", "_")
-    nuevo = codigo_nuevo.strip().upper().replace(" ", "_")
-    if anterior == nuevo:
+    anterior = _normalize_codigo(codigo_anterior) or ""
+    nuevo = _normalize_codigo(codigo_nuevo) or ""
+    if not anterior or not nuevo or anterior == nuevo:
         return
     db.execute(
         update(IntranetCalidad)
-        .where(IntranetCalidad.modulo == anterior)
+        .where(func.upper(IntranetCalidad.modulo) == anterior)
         .values(modulo=nuevo)
     )
     db.execute(
         update(IntranetCalidadVersion)
-        .where(IntranetCalidadVersion.modulo == anterior)
+        .where(func.upper(IntranetCalidadVersion.modulo) == anterior)
         .values(modulo=nuevo)
     )
     db.execute(
         update(IntranetPlanMejora)
-        .where(IntranetPlanMejora.modulo == anterior)
+        .where(func.upper(IntranetPlanMejora.modulo) == anterior)
         .values(modulo=nuevo)
     )
     db.execute(
         update(IntranetCalidadRol)
-        .where(IntranetCalidadRol.modulo == anterior)
+        .where(func.upper(IntranetCalidadRol.modulo) == anterior)
         .values(modulo=nuevo)
     )
-
-
-def renombrar_modulo_en_catalogo(
-    db: Session,
-    codigo_anterior: str,
-    codigo_nuevo: str,
-) -> None:
-    anterior = codigo_anterior.strip().upper().replace(" ", "_")
-    nuevo = codigo_nuevo.strip().upper().replace(" ", "_")
-    extra = _load_extra()
-    for entry in extra:
-        if (entry.get("codigo") or "").upper() == anterior:
-            entry["codigo"] = nuevo
-            _save_extra(extra)
-            break
-    overrides = _load_overrides()
-    if anterior in overrides:
-        overrides[nuevo] = overrides.pop(anterior)
-        _save_overrides(overrides)
-    propagar_codigo_modulo_en_oracle(db, anterior, nuevo)

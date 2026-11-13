@@ -3,16 +3,34 @@ import * as LucideIcons from "lucide-react";
 
 import { API_URL, apiFetch } from "../config/api";
 
-export const MODULOS_CATALOG_FALLBACK = [
-  { id: 1, codigo: "RESOLUCION_256", nombre: "Resolución 256", icono: "FileSpreadsheet" },
-  { id: 2, codigo: "EPIDEMIOLOGIA", nombre: "Epidemiología / IAAS", icono: "Activity" },
-];
+export function resolveModuloId(modulo) {
+  if (modulo == null) {
+    return null;
+  }
+  const raw = modulo.id ?? modulo.ID;
+  if (raw == null || raw === "") {
+    return null;
+  }
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+}
+
+/** Clave para DELETE: prefiere ID numérico; si no, código del catálogo. */
+export function resolveModuloDeleteKey(modulo) {
+  const id = resolveModuloId(modulo);
+  if (id != null) {
+    return String(id);
+  }
+  const codigo = (modulo?.codigo || "").trim().toUpperCase().replace(/\s+/g, "_");
+  return codigo || null;
+}
 
 export function normalizeModuloRecord(modulo) {
   const codigo = (modulo?.codigo || "").trim().toUpperCase().replace(/\s+/g, "_");
+  const id = resolveModuloId(modulo);
   return {
     ...modulo,
-    id: modulo?.id,
+    id,
     codigo,
     nombre: (modulo?.nombre || codigo || "Módulo").trim(),
     icono: (modulo?.icono || "Folder").trim(),
@@ -20,18 +38,28 @@ export function normalizeModuloRecord(modulo) {
   };
 }
 
-export async function fetchModulosActivos() {
+/** Lista de módulos desde GET /api/modulos (Oracle). */
+export async function fetchModulosCatalog({ soloActivos = true } = {}) {
   try {
-    const response = await apiFetch(`${API_URL}/modulos?solo_activos=true`);
+    const params = new URLSearchParams({
+      solo_activos: soloActivos ? "true" : "false",
+    });
+    const response = await apiFetch(`${API_URL}/modulos?${params}`);
     if (!response.ok) {
-      return MODULOS_CATALOG_FALLBACK.map(normalizeModuloRecord);
+      return [];
     }
     const data = await response.json();
-    const list = Array.isArray(data) && data.length ? data : MODULOS_CATALOG_FALLBACK;
-    return list.map(normalizeModuloRecord).filter((m) => m.codigo);
+    if (!Array.isArray(data)) {
+      return [];
+    }
+    return data.map(normalizeModuloRecord).filter((m) => m.codigo);
   } catch {
-    return MODULOS_CATALOG_FALLBACK.map(normalizeModuloRecord);
+    return [];
   }
+}
+
+export async function fetchModulosActivos() {
+  return fetchModulosCatalog({ soloActivos: true });
 }
 
 function EmojiIcon({ symbol }) {
