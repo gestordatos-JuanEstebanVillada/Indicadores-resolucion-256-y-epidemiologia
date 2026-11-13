@@ -16,7 +16,10 @@ from app.modules.calidad.router import MONTH_NAMES, _normalize_modulo, _normaliz
 from app.modules.auditoria.dependencies import get_audit_actor
 from app.modules.auditoria.service import registrar_auditoria
 from app.modules.auth.admin_dependencies import get_current_token_payload
-from app.modules.auth.module_access import resolver_filtro_modulo
+from app.modules.auth.module_access import (
+    filtro_modulos_planes,
+    resolver_filtro_modulo,
+)
 from app.shared.database.session import get_db
 
 router = APIRouter(tags=["Planes de mejora"])
@@ -214,6 +217,7 @@ def crear_plan_mejora(
 def _build_planes_query(
     *,
     modulo: str | None = None,
+    modulos_in: set[str] | None = None,
     estado: str | None = None,
     year: int | None = None,
 ):
@@ -228,6 +232,12 @@ def _build_planes_query(
     )
     if modulo:
         stmt = stmt.where(IntranetPlanMejora.modulo == _normalize_modulo(modulo))
+    elif modulos_in:
+        normalizados = sorted(
+            {_normalize_modulo(m) for m in modulos_in if _normalize_modulo(m)}
+        )
+        if normalizados:
+            stmt = stmt.where(IntranetPlanMejora.modulo.in_(normalizados))
     if estado:
         stmt = stmt.where(IntranetPlanMejora.estado == estado.strip().upper())
     if year is not None:
@@ -264,12 +274,18 @@ def listar_todos_planes_mejora(
     db: Session = Depends(get_db),
     token_payload: dict = Depends(get_current_token_payload),
 ):
-    effective_modulo = resolver_filtro_modulo(
+    modulos_scope = filtro_modulos_planes(
         token_payload, modulo, normalize=_normalize_modulo
     )
-    rows = db.execute(
-        _build_planes_query(modulo=effective_modulo, estado=estado, year=year)
-    ).all()
+    query_kw: dict = {"estado": estado, "year": year}
+    if modulos_scope is None:
+        if modulo:
+            query_kw["modulo"] = _normalize_modulo(modulo)
+    elif len(modulos_scope) == 1:
+        query_kw["modulo"] = next(iter(modulos_scope))
+    else:
+        query_kw["modulos_in"] = modulos_scope
+    rows = db.execute(_build_planes_query(**query_kw)).all()
     return [_plan_to_listado(plan, indicador) for plan, indicador in rows]
 
 
@@ -330,7 +346,7 @@ def listar_planes_mejora(
     db: Session = Depends(get_db),
     token_payload: dict = Depends(get_current_token_payload),
 ):
-    effective_modulo = resolver_filtro_modulo(
+    modulos_scope = filtro_modulos_planes(
         token_payload, modulo, normalize=_normalize_modulo
     )
     stmt = select(IntranetPlanMejora).order_by(
@@ -338,8 +354,15 @@ def listar_planes_mejora(
         IntranetPlanMejora.mes.desc(),
         IntranetPlanMejora.id.desc(),
     )
-    if effective_modulo:
-        stmt = stmt.where(IntranetPlanMejora.modulo == effective_modulo)
+    if modulos_scope is None:
+        if modulo:
+            stmt = stmt.where(
+                IntranetPlanMejora.modulo == _normalize_modulo(modulo)
+            )
+    elif len(modulos_scope) == 1:
+        stmt = stmt.where(IntranetPlanMejora.modulo == next(iter(modulos_scope)))
+    else:
+        stmt = stmt.where(IntranetPlanMejora.modulo.in_(sorted(modulos_scope)))
     if year is not None:
         stmt = stmt.where(IntranetPlanMejora.year == year)
 

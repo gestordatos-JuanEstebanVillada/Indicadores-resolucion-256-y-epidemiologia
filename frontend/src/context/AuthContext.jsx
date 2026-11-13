@@ -9,6 +9,8 @@ import React, {
 
 import {
   clearAuthSession,
+  getUserRoles,
+  isDefinedUserId,
   normalizeStoredRol,
   persistAuthSession,
 } from "../utils/authRoles";
@@ -23,14 +25,21 @@ function readSessionFromStorage() {
       localStorage.getItem("portal_role") ||
       ""
   );
+  const rawUserId = localStorage.getItem("user_id");
+  let id = null;
+  if (rawUserId !== null && rawUserId !== "") {
+    const parsed = Number(rawUserId);
+    id = Number.isNaN(parsed) ? null : parsed;
+  }
+
   return {
     token,
     rol,
+    roles: getUserRoles(),
     username: localStorage.getItem("username") || "",
     nombres: localStorage.getItem("nombres") || "",
-    id: localStorage.getItem("user_id")
-      ? Number(localStorage.getItem("user_id"))
-      : null,
+    id,
+    hasUserId: isDefinedUserId(id),
   };
 }
 
@@ -58,9 +67,11 @@ export function AuthProvider({ children }) {
     setSession({
       token: null,
       rol: "",
+      roles: [],
       username: "",
       nombres: "",
       id: null,
+      hasUserId: false,
     });
     setReady(true);
   }, []);

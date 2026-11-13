@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.shared.database.session import get_db
 from app.models import IntranetCalidad, IntranetCalidadVersion
 from app.modules.calidad.constants import MODULO_EPIDEMIOLOGIA
 from app.modules.calidad.router import (

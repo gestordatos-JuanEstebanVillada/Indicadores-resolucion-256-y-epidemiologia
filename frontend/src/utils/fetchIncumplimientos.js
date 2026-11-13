@@ -1,31 +1,30 @@
 import { API_URL, apiFetch } from "../config/api";
-import { getUserRol, ROLES } from "./authRoles";
+import {
+  esAdminGlobal,
+  getUserModulos,
+} from "./authRoles";
 import {
   MODULO_EPIDEMIOLOGIA,
   MODULO_RESOLUCION_256,
 } from "./moduleConstants";
 
-function modulosPermitidosPorRol() {
-  const rol = getUserRol();
-  if (rol === ROLES.ADMIN) {
+export function modulosParaNotificaciones() {
+  if (esAdminGlobal()) {
     return [MODULO_RESOLUCION_256, MODULO_EPIDEMIOLOGIA];
   }
-  if (rol === ROLES.RESOLUCION_256) {
-    return [MODULO_RESOLUCION_256];
-  }
-  if (rol === ROLES.EPIDEMIOLOGIA) {
-    return [MODULO_EPIDEMIOLOGIA];
-  }
-  return [];
+  const asignados = getUserModulos();
+  return asignados.length > 0
+    ? asignados
+    : [MODULO_RESOLUCION_256, MODULO_EPIDEMIOLOGIA];
 }
 
 export function incumplimientoKey(alert) {
   return `${alert.calidad_id}-${alert.year}-${alert.mes}`;
 }
 
-/** Incidencias sin plan, según módulos permitidos por rol (ADMIN: ambos). */
+/** Incidencias sin plan, por módulos asignados en INTRANET_CALIDAD_ROLES (JWT). */
 export async function fetchAllIncumplimientos() {
-  const modules = modulosPermitidosPorRol();
+  const modules = modulosParaNotificaciones();
   if (modules.length === 0) {
     return [];
   }

@@ -1,0 +1,78 @@
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { API_URL } from '../config/api'
+import { useAuth } from '../context/AuthContext'
+
+export default function Login(){
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
+  const navigate = useNavigate()
+  const { applySession } = useAuth()
+
+  async function handleSubmit(e){
+    e.preventDefault()
+    setMessage('')
+    try{
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      if(!res.ok){
+        const err = await res.json().catch(()=>({detail:'Usuario o contraseña incorrectos'}))
+        const detail = err.detail
+        setMessage(
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d) => d?.msg || String(d)).join('; ')
+              : 'Usuario o contraseña incorrectos'
+        )
+        return
+      }
+      const data = await res.json()
+      if (!data?.token) {
+        setMessage('Respuesta de login incompleta.')
+        return
+      }
+      try {
+        applySession(data)
+      } catch (sessionErr) {
+        console.error(sessionErr)
+        setMessage('No se pudo guardar la sesión. Intente de nuevo.')
+        return
+      }
+      navigate('/app', { replace: true })
+    }catch(err){
+      console.error(err)
+      setMessage('Usuario o contraseña incorrectos')
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label className="block text-xs font-semibold text-gray-600">Usuario</label>
+        <input value={username} onChange={e=>setUsername(e.target.value)} className="mt-2 block w-full border border-pink-200 rounded p-3 bg-white" placeholder="Usuario" />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold text-gray-600">Contraseña</label>
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="mt-2 block w-full border border-pink-200 rounded p-3 bg-white" placeholder="********" />
+      </div>
+
+      <div className="flex items-center justify-between text-sm">
+        
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <button className="w-full bg-pink-600 text-white p-3 rounded-md font-medium" type="submit">Login</button>
+      </div>
+
+
+      
+
+      {message && <div className="text-sm mt-2 text-red-600">{message}</div>}
+    </form>
+  )
+}

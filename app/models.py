@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import DateTime, Numeric
 from sqlalchemy.sql import func
@@ -33,12 +33,29 @@ class IntranetCalidadAuditoria(Base):
     created_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now())
 
 
+class IntranetSistemaRol(Base):
+    __tablename__ = "INTRANET_SISTEMA_ROLES"
+
+    nombre_rol: Mapped[str] = mapped_column(
+        "NOMBRE_ROL", String(50), primary_key=True
+    )
+    es_admin_global: Mapped[int | None] = mapped_column(
+        "ES_ADMIN_GLOBAL", Integer, default=0
+    )
+    permite_edicion: Mapped[int | None] = mapped_column(
+        "PERMITE_EDICION", Integer, default=0
+    )
+
+
 class IntranetCalidadRol(Base):
     __tablename__ = "INTRANET_CALIDAD_ROLES"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    usuario_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
-    rol: Mapped[str] = mapped_column(String(50), nullable=False)
+    usuario_id: Mapped[int] = mapped_column("USUARIO_ID", Integer, nullable=False)
+    jerarquia: Mapped[str] = mapped_column("ROL", String(50), nullable=False)
+    # Permiso por módulo: EDITOR | LECTOR
+    permiso: Mapped[str] = mapped_column("NOMBRE_ROL", String(50), nullable=False)
+    modulo: Mapped[str | None] = mapped_column("MODULO", String(100))
     created_at: Mapped[str | None] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[str | None] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

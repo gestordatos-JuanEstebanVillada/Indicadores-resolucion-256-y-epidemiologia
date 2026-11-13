@@ -5,7 +5,12 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import IntranetCalidadRol, Usuario
+from app.models import Usuario
+from app.core.ids import tiene_filas_acceso
+from app.modules.auth.calidad_roles_data import (
+    eliminar_accesos_usuario,
+    listar_filas_usuario,
+)
 from app.modules.auditoria.service import registrar_auditoria
 
 logger = logging.getLogger(__name__)
@@ -21,7 +26,7 @@ def normalize_login(value: str) -> str:
 
 
 def normalize_password(value: str) -> str:
-    return value.strip().upper()
+    return value.strip()
 
 
 def find_user_by_login(db: Session, login: str) -> Usuario | None:
@@ -57,12 +62,7 @@ def asegurar_login_disponible_para_creacion(
     if existing is None:
         return
 
-    rol = db.scalar(
-        select(IntranetCalidadRol).where(
-            IntranetCalidadRol.usuario_id == existing.id
-        )
-    )
-    if rol is not None:
+    if tiene_filas_acceso(listar_filas_usuario(db, existing.id)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=_duplicate_login_detail(label),
@@ -83,15 +83,17 @@ def _next_usuario_id(db: Session) -> int:
     return int(next_id)
 
 
-def crear_usuario_con_rol(
+def crear_usuario_con_accesos(
     db: Session,
     *,
     nombres: str,
     usuario: str,
     contrasena: str,
-    rol: str,
+    jerarquia: str,
+    accesos: list[dict],
     actor: str,
-) -> tuple[Usuario, IntranetCalidadRol]:
+    roles_repo,
+) -> Usuario:
     login = normalize_login(usuario)
     try:
         nuevo_id = _next_usuario_id(db)
@@ -106,19 +108,17 @@ def crear_usuario_con_rol(
         db.add(nuevo_usuario)
         db.flush()
 
-        nuevo_rol = IntranetCalidadRol(usuario_id=nuevo_usuario.id, rol=rol)
-        db.add(nuevo_rol)
+        roles_repo.reemplazar_accesos(nuevo_usuario.id, jerarquia, accesos)
         registrar_auditoria(
             db,
             actor=actor,
             accion="POST",
             modulo="USUARIOS",
-            detalle=f"Creó usuario {login} con rol {rol}",
+            detalle=f"Creó usuario {login} con accesos por módulo",
         )
         db.commit()
         db.refresh(nuevo_usuario)
-        db.refresh(nuevo_rol)
-        return nuevo_usuario, nuevo_rol
+        return nuevo_usuario
     except HTTPException:
         db.rollback()
         raise
@@ -150,6 +150,41 @@ def crear_usuario_con_rol(
         ) from exc
 
 
+def revocar_solo_acceso_indicadores(
+    db: Session,
+    *,
+    usuario_id: int,
+    actor: str,
+) -> None:
+    try:
+        if not tiene_filas_acceso(listar_filas_usuario(db, usuario_id)):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="El usuario no tiene accesos en Indicadores",
+            )
+        user = db.get(Usuario, usuario_id)
+        login = user.usuario if user is not None else str(usuario_id)
+        eliminar_accesos_usuario(db, usuario_id)
+        registrar_auditoria(
+            db,
+            actor=actor,
+            accion="DELETE",
+            modulo="USUARIOS",
+            detalle=f"Revocó accesos de Indicadores para {login}",
+        )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Error al revocar acceso %s: %s", usuario_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No se pudo revocar el acceso",
+        ) from exc
+
+
 def eliminar_acceso_y_usuario(
     db: Session,
     *,
@@ -157,21 +192,17 @@ def eliminar_acceso_y_usuario(
     actor: str,
 ) -> None:
     try:
-        rol = db.scalar(
-            select(IntranetCalidadRol).where(
-                IntranetCalidadRol.usuario_id == usuario_id
-            )
-        )
+        tiene_roles = bool(listar_filas_usuario(db, usuario_id))
         user = db.get(Usuario, usuario_id)
 
-        if user is None and rol is None:
+        if user is None and not tiene_roles:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Usuario no encontrado",
             )
 
-        if rol is not None:
-            db.delete(rol)
+        if tiene_roles:
+            eliminar_accesos_usuario(db, usuario_id)
         if user is not None:
             login = user.usuario or str(usuario_id)
             db.delete(user)

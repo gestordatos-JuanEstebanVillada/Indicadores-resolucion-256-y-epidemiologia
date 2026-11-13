@@ -10,6 +10,9 @@ from app.modules.iaas.router import router as iaas_router
 from app.modules.tableau.router import router as tableau_router
 from app.modules.usuarios.router import router as usuarios_router
 from app.modules.auditoria.router import router as auditoria_router
+from app.modules.modulos.router import router as modulos_catalog_router
+from app.modules.modulos.indicadores_router import router as modulos_indicadores_router
+from app.modules.dashboard.router import router as dashboard_router
 
 
 app = FastAPI(title=settings.app_name)
@@ -57,6 +60,21 @@ app.include_router(
 
 app.include_router(
     auditoria_router,
+    prefix=settings.api_prefix,
+)
+
+app.include_router(
+    modulos_catalog_router,
+    prefix=settings.api_prefix,
+)
+
+app.include_router(
+    modulos_indicadores_router,
+    prefix=settings.api_prefix,
+)
+
+app.include_router(
+    dashboard_router,
     prefix=settings.api_prefix,
 )
 

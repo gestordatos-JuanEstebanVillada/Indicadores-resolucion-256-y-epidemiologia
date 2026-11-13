@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import '@tableau/embedding-api';
-import { API_URL } from '../config/api.js';
+import { API_URL } from '../config/api';
 import './TableauDashboard.css';
 
 const TableauDashboard = () => {

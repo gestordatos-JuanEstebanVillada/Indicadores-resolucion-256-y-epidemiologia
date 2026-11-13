@@ -15,9 +15,15 @@ class AuthRepository:
             .first()
         )
 
-    def obtener_rol_indicadores(self, usuario_id: int) -> IntranetCalidadRol | None:
-        return self.db.scalar(
-            select(IntranetCalidadRol).where(
-                IntranetCalidadRol.usuario_id == usuario_id
-            )
+    def obtener_roles_indicadores(self, usuario_id: int) -> list[IntranetCalidadRol]:
+        return list(
+            self.db.scalars(
+                select(IntranetCalidadRol).where(
+                    IntranetCalidadRol.usuario_id == usuario_id
+                )
+            ).all()
         )
+
+    def obtener_rol_indicadores(self, usuario_id: int) -> IntranetCalidadRol | None:
+        rows = self.obtener_roles_indicadores(usuario_id)
+        return rows[0] if rows else None

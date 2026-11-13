@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 
 
-from app.database import get_db
+from app.shared.database.session import get_db
 
 from app.models import IntranetCalidad, IntranetCalidadVersion
 from app.modules.auditoria.dependencies import get_audit_actor
