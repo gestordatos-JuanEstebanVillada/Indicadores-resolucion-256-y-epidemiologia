@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.modules.auth.calidad_roles_data import JERARQUIA_AREA, JERARQUIA_GLOBAL, JERARQUIA_USUARIO
+from app.modules.modulos.maestro import assert_modulos_existen_en_maestro
 from app.modules.auth.permissions import (
     es_admin_global_token,
     es_administrador_area_token,
@@ -92,10 +94,12 @@ def assert_usuario_visible_en_gestion(
 
 
 def assert_accesos_asignables(
+    db: Session,
     requester: dict,
     jerarquia: str,
     accesos: list,
 ) -> None:
+    assert_modulos_existen_en_maestro(db, jerarquia, accesos)
     clave = (jerarquia or "").strip().upper()
     if es_admin_global_token(requester):
         return

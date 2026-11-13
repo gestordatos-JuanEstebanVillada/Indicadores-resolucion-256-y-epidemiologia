@@ -78,7 +78,9 @@ class AuthService:
 
     def _acceso_usuario(self, usuario: Usuario):
 
-        acceso = resolver_acceso_usuario(self._db, usuario.id)
+        acceso = resolver_acceso_usuario(
+            self._db, usuario.id, username=usuario.usuario or ""
+        )
 
         if acceso is None:
 

@@ -5,7 +5,9 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../../Components/layout/Sidebar";
 
 import NotificationBell from "../../Components/Notifications/NotificationBell";
+import NoModulosActivos from "../../Components/NoModulosActivos";
 import { useAuth } from "../../context/AuthContext";
+import { esAdminGlobal, getUserModulos } from "../../utils/authRoles";
 
 export default function Dashboard() {
 
@@ -31,6 +33,8 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const sinModulosActivos = !esAdminGlobal() && getUserModulos().length === 0;
 
 
 
@@ -146,7 +150,7 @@ export default function Dashboard() {
 
           <div className="max-w-7xl mx-auto">
 
-            <Outlet />
+            {sinModulosActivos ? <NoModulosActivos /> : <Outlet />}
 
           </div>
 

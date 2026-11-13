@@ -7,10 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.modules.auth.calidad_roles_data import (
     FilaCalidadRol,
+    JERARQUIA_AREA,
     JERARQUIA_GLOBAL,
+    JERARQUIA_USUARIO,
     listar_filas_usuario,
     resolver_resumen_accesos,
 )
+from app.modules.modulos.maestro import filtrar_acceso_modulos_huerfanos
 
 
 @dataclass(frozen=True)
@@ -43,6 +46,16 @@ def resolver_acceso_desde_filas(
             modulos_edicion=[],
         )
     if not resumen.modulos:
+        if resumen.jerarquia in {JERARQUIA_AREA, JERARQUIA_USUARIO}:
+            return AccesoUsuario(
+                jerarquia=resumen.jerarquia,
+                nombre_rol=resumen.jerarquia,
+                es_admin_global=0,
+                permite_edicion=0,
+                modulos=[],
+                modulos_solo_lectura=[],
+                modulos_edicion=[],
+            )
         return None
     permite = 1 if resumen.modulos_edicion else 0
     return AccesoUsuario(
@@ -60,10 +73,19 @@ def resolver_acceso_usuario(
     db: Session,
     usuario_id: int,
     filas: list[FilaCalidadRol] | None = None,
+    username: str | None = None,
 ) -> AccesoUsuario | None:
     if filas is None:
         filas = listar_filas_usuario(db, usuario_id)
-    return resolver_acceso_desde_filas(db, filas)
+    acceso = resolver_acceso_desde_filas(db, filas)
+    if acceso is None:
+        return None
+    return filtrar_acceso_modulos_huerfanos(
+        db,
+        acceso,
+        usuario_id=usuario_id,
+        username=username,
+    )
 
 
 def token_claims_desde_acceso(acceso: AccesoUsuario, usuario_id: int, username: str) -> dict:

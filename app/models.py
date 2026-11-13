@@ -47,6 +47,19 @@ class IntranetSistemaRol(Base):
     )
 
 
+class IntranetModulo(Base):
+    __tablename__ = "INTRANET_MODULOS"
+
+    id: Mapped[int] = mapped_column("ID", Integer, primary_key=True, autoincrement=True)
+    codigo: Mapped[str] = mapped_column("CODIGO", String(50), nullable=False)
+    nombre: Mapped[str] = mapped_column("NOMBRE", String(100), nullable=False)
+    icono: Mapped[str | None] = mapped_column("ICONO", String(50))
+    estado: Mapped[str | None] = mapped_column("ESTADO", String(20), default="ACTIVO")
+    created_at: Mapped[str | None] = mapped_column(
+        "CREATED_AT", DateTime, server_default=func.now()
+    )
+
+
 class IntranetCalidadRol(Base):
     __tablename__ = "INTRANET_CALIDAD_ROLES"
 

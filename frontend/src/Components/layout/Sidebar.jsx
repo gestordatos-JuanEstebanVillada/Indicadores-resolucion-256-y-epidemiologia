@@ -87,12 +87,12 @@ export default function Sidebar() {
 
   const dynamicModuleItems = useMemo(
     () =>
-      modulos
-        .filter((modulo) => canViewModulo(modulo.codigo))
+      (modulos || [])
+        .filter((modulo) => modulo?.codigo && canViewModulo(modulo.codigo))
         .map((modulo) => ({
-          name: modulo.nombre,
-          codigo: modulo.codigo,
-          icon: resolveModuloIcon(modulo.icono),
+          name: modulo?.nombre || modulo?.codigo || "Módulo",
+          codigo: modulo?.codigo,
+          icon: resolveModuloIcon(modulo?.icono),
           subItems: [
             ...(canMutateModulo(modulo.codigo)
               ? [
@@ -135,7 +135,7 @@ export default function Sidebar() {
   }
 
   function renderNavItem(item) {
-    const Icon = item.icon;
+    const Icon = item?.icon || LayoutGrid;
 
     if (!item.subItems) {
       return (

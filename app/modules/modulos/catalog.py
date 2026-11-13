@@ -106,6 +106,12 @@ def listar_modulos_catalogo(
     *,
     solo_activos: bool = True,
 ) -> list[ModuloCatalogo]:
+    from app.modules.modulos.maestro import listar_modulos_desde_maestro
+
+    maestro = listar_modulos_desde_maestro(db, solo_activos=solo_activos)
+    if maestro is not None:
+        return maestro
+
     overrides = _load_overrides()
     merged: dict[str, dict[str, str]] = {}
     for item in MODULOS_BASE + _load_extra() + _distinct_modulos_calidad(db):

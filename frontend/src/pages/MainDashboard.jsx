@@ -20,6 +20,7 @@ import { API_URL, apiFetch } from "../config/api";
 import { useAuth } from "../context/AuthContext";
 import { INCUMPLIMIENTOS_REFRESH_EVENT } from "../utils/incumplimientosEvents";
 import { esAdminGlobal, getUserModulos } from "../utils/authRoles";
+import NoModulosActivos from "../Components/NoModulosActivos";
 import { fetchModulosActivos } from "../utils/modulosCatalog";
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -102,6 +103,7 @@ export default function MainDashboard() {
   const [selectedModulo, setSelectedModulo] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [openModule, setOpenModule] = useState(null);
+  const [catalogReady, setCatalogReady] = useState(false);
 
   const selectorBloqueado = moduloOptions.length <= 1;
 
@@ -136,10 +138,14 @@ export default function MainDashboard() {
         setModuloOptions(opciones);
         if (opciones.length > 0) {
           setSelectedModulo(opciones[0].value);
+        } else {
+          setSelectedModulo(ALL_MODULOS_VALUE);
         }
+        setCatalogReady(true);
       }
     }
     if (ready && authenticated) {
+      setCatalogReady(false);
       loadOpciones();
     }
     return () => {
@@ -303,7 +309,19 @@ export default function MainDashboard() {
     setOpenModule((current) => (current === moduleKey ? null : moduleKey));
   }
 
-  if (!ready || !authenticated || selectedModulo === null || isLoading) {
+  if (!ready || !authenticated || !catalogReady) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!esAdminGlobal() && getUserModulos().length === 0) {
+    return <NoModulosActivos />;
+  }
+
+  if (moduloOptions.length === 0) {
+    return <NoModulosActivos />;
+  }
+
+  if (selectedModulo === null || isLoading) {
     return <DashboardSkeleton />;
   }
 

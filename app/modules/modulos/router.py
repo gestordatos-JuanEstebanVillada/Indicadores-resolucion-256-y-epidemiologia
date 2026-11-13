@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import IntranetCalidadRol, IntranetSistemaRol, Usuario
+from app.models import IntranetCalidadRol, IntranetModulo, IntranetSistemaRol, Usuario
 from app.modules.auth.admin_dependencies import get_current_admin_user
 from app.modules.auth.admin_dependencies import get_current_token_payload
 from app.modules.modulos.catalog import (
     ModuloCatalogo,
     actualizar_modulo_catalogo,
-    agregar_modulo_extra,
     eliminar_modulo_del_catalogo,
     listar_modulos_catalogo,
     obtener_modulo_catalogo,
@@ -53,38 +53,60 @@ def crear_modulo(
     _: dict = Depends(get_current_admin_user),
 ):
     codigo = payload.codigo or _normalize_codigo(payload.nombre)
-    if not codigo:
+    if not codigo or " " in codigo:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No se pudo derivar un código válido",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se pudo derivar un código válido (use letras, números y guiones bajos)",
         )
 
-    if obtener_modulo_catalogo(db, codigo) is not None:
+    nombre = payload.nombre.strip()
+    icono = payload.icono.strip()
+    estado = payload.estado.strip().upper()
+
+    existente = db.scalar(
+        select(IntranetModulo.id).where(
+            or_(
+                func.upper(IntranetModulo.codigo) == codigo,
+                func.upper(IntranetModulo.nombre) == nombre.upper(),
+            )
+        )
+    )
+    if existente is not None:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Ya existe un módulo con ese código o nombre",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ya existe un módulo con ese código o nombre en el catálogo maestro",
         )
 
+    nuevo = IntranetModulo(
+        codigo=codigo,
+        nombre=nombre,
+        icono=icono,
+        estado=estado,
+    )
     try:
-        agregar_modulo_extra(
-            codigo=codigo,
-            nombre=payload.nombre.strip(),
-            icono=(payload.icono or "Folder").strip(),
-            estado=(payload.estado or "ACTIVO").strip().upper(),
-        )
-    except ValueError:
+        db.add(nuevo)
+        db.commit()
+        db.refresh(nuevo)
+    except IntegrityError as exc:
+        db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Ya existe un módulo con ese código",
-        ) from None
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Conflicto al guardar el módulo: {exc.orig}",
+        ) from exc
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
-    item = obtener_modulo_catalogo(db, codigo)
-    if item is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No se pudo registrar el módulo en catálogo local",
-        )
-    return _to_out(item)
+    return ModuloOut(
+        id=int(nuevo.id),
+        codigo=nuevo.codigo,
+        nombre=nuevo.nombre,
+        icono=nuevo.icono,
+        estado=nuevo.estado,
+    )
 
 
 @router.put("/codigo/{codigo}", response_model=ModuloOut)

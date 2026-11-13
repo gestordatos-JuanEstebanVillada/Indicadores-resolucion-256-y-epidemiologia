@@ -216,7 +216,7 @@ def crear_usuario(
         requester, payload.jerarquia
     )
     assert_accesos_asignables(
-        requester, jerarquia_asignacion, payload.accesos
+        db, requester, jerarquia_asignacion, payload.accesos
     )
     login = normalize_login(payload.usuario)
     asegurar_login_disponible_para_creacion(
@@ -252,7 +252,7 @@ def asignar_rol(
         requester, payload.jerarquia
     )
     assert_accesos_asignables(
-        requester, jerarquia_asignacion, payload.accesos
+        db, requester, jerarquia_asignacion, payload.accesos
     )
     user = find_user_by_login(db, payload.usuario)
     if user is None:
@@ -289,7 +289,7 @@ def actualizar_accesos(
         requester, payload.jerarquia
     )
     assert_accesos_asignables(
-        requester, jerarquia_asignacion, payload.accesos
+        db, requester, jerarquia_asignacion, payload.accesos
     )
     user = db.get(Usuario, user_id)
     if user is None:
