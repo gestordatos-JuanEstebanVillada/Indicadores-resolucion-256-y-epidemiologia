@@ -387,7 +387,8 @@ export function indicadorToApiPayload(indicador, { year, observatorio }) {
           dato.numerador,
           dato.denominador,
           indicador.formula,
-          indicador.nombre
+          indicador.nombre,
+          indicador.meta
         ),
       };
     })

@@ -37,11 +37,14 @@ export function evaluarCumplimientoMeta(valorObtenido, metaStr) {
   return true;
 }
 
+const META_PARSE_RE =
+  /^\s*(<=|>=|<|>|=)\s*([\d]+(?:[.,]\d+)?)\s*%?\s*$/i;
+
 function parseThreshold(metaStr) {
-  let text = String(metaStr).trim().replace(/,/g, ".").replace(/%/g, "");
+  let text = String(metaStr).trim().replace(/,/g, ".");
   text = text.replace(/\s+/g, "");
 
-  const match = text.match(/^(<=|>=|<|>|=)([\d.]+)$/i);
+  const match = text.match(META_PARSE_RE);
   if (match) {
     const threshold = Number(match[2]);
     return Number.isNaN(threshold) ? null : [match[1], threshold];

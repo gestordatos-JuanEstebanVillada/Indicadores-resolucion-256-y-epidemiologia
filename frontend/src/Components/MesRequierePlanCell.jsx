@@ -20,7 +20,16 @@ export default function MesRequierePlanCell({
     if (!filaMensualTieneDatos(row)) {
       return false;
     }
-    const valor = resolveIndicatorValue(row, formula, indicador);
+    const denominador = Number(row?.denominador) || 0;
+    if (denominador === 0) {
+      return false;
+    }
+    const valor = resolveIndicatorValue(
+      row,
+      formula,
+      indicador,
+      metaInstitucional
+    );
     if (valor == null) {
       return false;
     }

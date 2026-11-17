@@ -3,15 +3,21 @@
 import re
 
 
+META_PARSE_RE = re.compile(
+    r"^\s*(<=|>=|<|>|=)\s*([\d]+(?:[.,]\d+)?)\s*%?\s*$",
+    flags=re.IGNORECASE,
+)
+
+
 def _parse_threshold(meta_str: str) -> tuple[str, float] | None:
     cleaned = str(meta_str).strip()
     if not cleaned:
         return None
 
-    text = cleaned.replace(",", ".").replace("%", "")
+    text = cleaned.replace(",", ".")
     text = re.sub(r"\s+", "", text)
 
-    match = re.match(r"^(<=|>=|<|>|=)([\d.]+)$", text, flags=re.IGNORECASE)
+    match = META_PARSE_RE.match(text)
     if match:
         try:
             return match.group(1), float(match.group(2))

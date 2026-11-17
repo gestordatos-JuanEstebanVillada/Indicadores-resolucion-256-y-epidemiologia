@@ -20,6 +20,7 @@ import {
 import {
   calculateIndicatorValue,
   formatIndicatorDisplay,
+  recalculateRowsWithIndicator,
 } from "../../utils/formatIndicator";
 import {
   MODULO_EPIDEMIOLOGIA,
@@ -75,8 +76,20 @@ export default function IaasForm() {
       document.removeEventListener("keydown", handleEscape);
   }, [uploadPreview]);
 
+  useEffect(() => {
+    setRows((current) =>
+      recalculateRowsWithIndicator(current, formula, indicador, meta)
+    );
+  }, [formula, indicador, meta]);
+
   function calculateIndicator(numerador, denominador) {
-    return calculateIndicatorValue(numerador, denominador, formula, indicador);
+    return calculateIndicatorValue(
+      numerador,
+      denominador,
+      formula,
+      indicador,
+      meta
+    );
   }
 
   function updateRow(index, field, value) {
@@ -103,7 +116,7 @@ export default function IaasForm() {
   }
 
   function formatIndicator(value) {
-    return formatIndicatorDisplay(value, formula, indicador);
+    return formatIndicatorDisplay(value, meta, formula, indicador);
   }
 
   function applyIndicadorToForm(indicadorData) {

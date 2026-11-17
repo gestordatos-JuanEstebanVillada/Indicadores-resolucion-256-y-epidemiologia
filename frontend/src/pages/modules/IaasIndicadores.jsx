@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CornerDownRight, Edit3, Eye, Plus, Save, Search, Trash2, X } from "lucide-react";
 import ModalOverlay from "../../Components/ModalOverlay";
+import MetaInstitucionalFields from "../../Components/calidad/MetaInstitucionalFields";
 import MesRequierePlanCell from "../../Components/MesRequierePlanCell";
 import { dispatchIncumplimientosRefresh } from "../../utils/incumplimientosEvents";
 import { attemptToggleRequierePlanInRows } from "../../utils/attemptToggleRequierePlan";
@@ -272,17 +273,35 @@ export default function IaasIndicadores() {
     setForm(nextForm);
 
     if (
-      (name === "formula" || name === "indicador")
+      (name === "formula" || name === "indicador" || name === "meta_institucional")
       && (editingId !== null || newVersionFor !== null)
     ) {
       setRows((current) =>
         recalculateRowsWithIndicator(
           current,
           nextForm.formula,
-          nextForm.indicador
+          nextForm.indicador,
+          nextForm.meta_institucional
         )
       );
     }
+  }
+
+  function updateMetaInstitucional(value) {
+    setForm((current) => {
+      const nextForm = { ...current, meta_institucional: value };
+      if (editingId !== null || newVersionFor !== null) {
+        setRows((rowsCurrent) =>
+          recalculateRowsWithIndicator(
+            rowsCurrent,
+            nextForm.formula,
+            nextForm.indicador,
+            value
+          )
+        );
+      }
+      return nextForm;
+    });
   }
 
   async function saveVersion(event) {
@@ -385,7 +404,8 @@ export default function IaasIndicadores() {
         numerator,
         denominator,
         form.formula,
-        form.indicador
+        form.indicador,
+        form.meta_institucional
       );
     }
     setRows(next);
@@ -631,10 +651,11 @@ export default function IaasIndicadores() {
             <textarea name="formula" value={form.formula} onChange={updateField} rows="2" className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800" />
           </label>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="block text-sm text-gray-600">
-              Meta institucional
-              <input name="meta_institucional" value={form.meta_institucional} onChange={updateField} className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800" />
-            </label>
+            <MetaInstitucionalFields
+              className="text-gray-600"
+              value={form.meta_institucional}
+              onChange={updateMetaInstitucional}
+            />
             <label className="block text-sm text-gray-600">
               Observatorio
               <input
@@ -656,7 +677,14 @@ export default function IaasIndicadores() {
                       <td className="px-3 py-2 font-medium">{months[index]}</td>
                       <td className="px-3 py-2"><input type="number" step="any" value={row.numerador ?? ""} onChange={(event) => updateRow(index, "numerador", event.target.value)} className="w-32 rounded border border-gray-300 px-2 py-1" /></td>
                       <td className="px-3 py-2"><input type="number" step="any" value={row.denominador ?? ""} onChange={(event) => updateRow(index, "denominador", event.target.value)} className="w-32 rounded border border-gray-300 px-2 py-1" /></td>
-                      <td className="px-3 py-2 text-gray-600">{formatIndicatorRowDisplay(row, form.formula, form.indicador)}</td>
+                      <td className="px-3 py-2 text-gray-600">
+                        {formatIndicatorRowDisplay(
+                          row,
+                          form.formula,
+                          form.indicador,
+                          form.meta_institucional
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <MesRequierePlanCell
                           row={row}
@@ -801,7 +829,12 @@ export default function IaasIndicadores() {
                               {row.denominador ?? "-"}
                             </td>
                             <td className="px-3 py-2">
-                              {formatIndicatorRowDisplay(row, version.formula, version.indicador)}
+                              {formatIndicatorRowDisplay(
+                                row,
+                                version.formula,
+                                version.indicador,
+                                version.meta_institucional
+                              )}
                             </td>
                             <td className="px-3 py-2">
                               <MesRequierePlanCell

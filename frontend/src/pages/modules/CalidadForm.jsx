@@ -21,6 +21,7 @@ import {
 import {
   calculateIndicatorValue,
   formatIndicatorDisplay,
+  recalculateRowsWithIndicator,
 } from "../../utils/formatIndicator";
 import {
   MODULO_RESOLUCION_256,
@@ -83,8 +84,20 @@ export default function CalidadForm() {
       document.removeEventListener("keydown", handleEscape);
   }, [uploadPreview]);
 
+  useEffect(() => {
+    setRows((current) =>
+      recalculateRowsWithIndicator(current, formula, indicador, meta)
+    );
+  }, [formula, indicador, meta]);
+
   function calculateIndicator(numerador, denominador) {
-    return calculateIndicatorValue(numerador, denominador, formula, indicador);
+    return calculateIndicatorValue(
+      numerador,
+      denominador,
+      formula,
+      indicador,
+      meta
+    );
   }
 
   function updateRow(index, field, value) {
@@ -128,7 +141,13 @@ export default function CalidadForm() {
     return {
       numerador,
       denominador,
-      indicador: calculateIndicatorValue(numerador, denominador, formula, indicador),
+      indicador: calculateIndicatorValue(
+        numerador,
+        denominador,
+        formula,
+        indicador,
+        meta
+      ),
     };
   }
 
@@ -151,7 +170,7 @@ export default function CalidadForm() {
   );
 
   function formatIndicator(value) {
-    return formatIndicatorDisplay(value, formula, indicador);
+    return formatIndicatorDisplay(value, meta, formula, indicador);
   }
 
   function applyIndicadorToForm(indicadorData) {

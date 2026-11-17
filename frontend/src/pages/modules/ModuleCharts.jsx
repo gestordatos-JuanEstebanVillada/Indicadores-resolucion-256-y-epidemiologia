@@ -301,7 +301,12 @@ export default function IndicadoresCharts() {
         label: `Indicador ${year}`,
         data: (version?.rows ?? []).map((row) =>
           toChartIndicatorDisplayValue(
-            resolveIndicatorValue(row, version?.formula, version?.indicador),
+            resolveIndicatorValue(
+              row,
+              version?.formula,
+              version?.indicador,
+              version?.meta_institucional
+            ),
             version?.formula
           )
         ),
@@ -439,7 +444,12 @@ export default function IndicadoresCharts() {
               const row = rows[dataIndex];
 
               if (row) {
-                const label = formatIndicatorRowDisplay(row, formula, indicadorName);
+                const label = formatIndicatorRowDisplay(
+                  row,
+                  formula,
+                  indicadorName,
+                  version?.meta_institucional
+                );
                 if (label !== "—") {
                   return `Indicador: ${label}`;
                 }

@@ -1,5 +1,7 @@
 import { FileSpreadsheet } from "lucide-react";
 
+import MetaInstitucionalFields from "./MetaInstitucionalFields";
+
 export default function IndicatorInfoSection({
   indicador,
   formula,
@@ -46,14 +48,10 @@ export default function IndicatorInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Meta institucional
-          </label>
-
-          <input
+          <MetaInstitucionalFields
             value={meta}
-            onChange={(e) => onMetaChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 focus:border-pink-500 outline-none"
+            onChange={onMetaChange}
+            label="Meta institucional"
           />
         </div>
 

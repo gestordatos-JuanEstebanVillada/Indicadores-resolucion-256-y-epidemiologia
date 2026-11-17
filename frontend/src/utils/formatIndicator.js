@@ -1,5 +1,7 @@
+import { metaEsPorcentaje } from "./metaInstitucional";
+
 /**
- * Extrae el multiplicador matemático desde la fórmula y el nombre del indicador.
+ * Multiplicador legado (sin meta institucional en el string).
  */
 export function getMultiplier(formula, indicadorName = "") {
   const nameLower = String(indicadorName).toLowerCase();
@@ -47,12 +49,22 @@ export function getMultiplier(formula, indicadorName = "") {
   return 1;
 }
 
-/** Formatea el valor ya calculado (n/d × multiplicador), sin volver a dividir. */
-function formatIndicatorNumber(num) {
-  return num.toFixed(3);
+export function formulaExigeMultiplicadorCien(formula) {
+  if (!formula) {
+    return false;
+  }
+  const text = String(formula)
+    .toLowerCase()
+    .replace(/×/g, "x")
+    .replace(/\s+/g, "");
+  return /(x|\*)100/.test(text) || text.includes("%");
 }
 
-function shouldAppendPercentSuffix(indicadorName) {
+function formatIndicatorNumber(num) {
+  return Number(num).toFixed(3);
+}
+
+function shouldAppendPercentSuffixLegacy(indicadorName) {
   const nameLower = String(indicadorName).toLowerCase();
 
   return (
@@ -67,9 +79,44 @@ function shouldAppendPercentSuffix(indicadorName) {
 }
 
 /**
- * Formatea el valor del indicador para mostrar en UI.
+ * Calcula el indicador según meta institucional y fórmula.
  */
-export function formatIndicatorDisplay(value, formula, indicadorName = "") {
+export function calculateIndicatorValue(
+  numerador,
+  denominador,
+  formula,
+  indicadorName = "",
+  metaInstitucional = ""
+) {
+  const n = Number(numerador) || 0;
+  const d = Number(denominador) || 0;
+
+  if (d === 0) {
+    return null;
+  }
+
+  const ratio = n / d;
+  const meta = String(metaInstitucional ?? "").trim();
+
+  if (meta) {
+    if (metaEsPorcentaje(meta)) {
+      return ratio * 100;
+    }
+    if (formulaExigeMultiplicadorCien(formula)) {
+      return ratio * 100;
+    }
+    return ratio;
+  }
+
+  return ratio * getMultiplier(formula, indicadorName);
+}
+
+export function formatIndicatorDisplay(
+  value,
+  metaInstitucional = "",
+  formula = "",
+  indicadorName = ""
+) {
   if (value === null || value === undefined || value === "") {
     return "—";
   }
@@ -81,18 +128,28 @@ export function formatIndicatorDisplay(value, formula, indicadorName = "") {
   }
 
   let formatted = formatIndicatorNumber(num);
+  const meta = String(metaInstitucional ?? "").trim();
 
-  if (shouldAppendPercentSuffix(indicadorName)) {
+  if (meta) {
+    if (metaEsPorcentaje(meta)) {
+      formatted += "%";
+    }
+    return formatted;
+  }
+
+  if (shouldAppendPercentSuffixLegacy(indicadorName)) {
     formatted += "%";
   }
 
   return formatted;
 }
 
-/**
- * Valor numérico del indicador para una fila (recalcula desde n/d cuando hay denominador).
- */
-export function resolveIndicatorValue(row, formula, indicadorName = "") {
+export function resolveIndicatorValue(
+  row,
+  formula,
+  indicadorName = "",
+  metaInstitucional = ""
+) {
   const denominador = Number(row?.denominador) || 0;
 
   if (denominador > 0) {
@@ -100,7 +157,8 @@ export function resolveIndicatorValue(row, formula, indicadorName = "") {
       row?.numerador,
       denominador,
       formula,
-      indicadorName
+      indicadorName,
+      metaInstitucional
     );
   }
 
@@ -115,35 +173,43 @@ export function resolveIndicatorValue(row, formula, indicadorName = "") {
   return Number.isFinite(num) ? num : null;
 }
 
-/**
- * Formatea el indicador de una fila mensual para tablas y modales.
- */
-export function formatIndicatorRowDisplay(row, formula, indicadorName = "") {
+export function formatIndicatorRowDisplay(
+  row,
+  formula,
+  indicadorName = "",
+  metaInstitucional = ""
+) {
   return formatIndicatorDisplay(
-    resolveIndicatorValue(row, formula, indicadorName),
+    resolveIndicatorValue(row, formula, indicadorName, metaInstitucional),
+    metaInstitucional,
     formula,
     indicadorName
   );
 }
 
-/**
- * Recalcula indicador_valor en cada fila sin redondear (estado / guardado).
- */
-export function recalculateRowsWithIndicator(rows, formula, indicadorName = "") {
-  const multiplier = getMultiplier(formula, indicadorName);
-
+export function recalculateRowsWithIndicator(
+  rows,
+  formula,
+  indicadorName = "",
+  metaInstitucional = ""
+) {
   return (rows || []).map((row) => {
     const num = Number(row.numerador) || 0;
     const den = Number(row.denominador) || 0;
 
     return {
       ...row,
-      indicador_valor: den ? (num / den) * multiplier : null,
+      indicador_valor: calculateIndicatorValue(
+        num,
+        den,
+        formula,
+        indicadorName,
+        metaInstitucional
+      ),
     };
   });
 }
 
-/** Recalcula filas mensuales de una versión/indicador completo. */
 function normalizeRequierePlanFlag(value) {
   return (value || "NO").toUpperCase() === "SI" ? "SI" : "NO";
 }
@@ -151,6 +217,7 @@ function normalizeRequierePlanFlag(value) {
 export function recalculateVersionIndicatorRows(version, emptyRows = []) {
   const formula = version?.formula ?? "";
   const indicadorName = version?.indicador ?? "";
+  const metaInstitucional = version?.meta_institucional ?? "";
   const sourceRows = version?.rows?.length ? version.rows : emptyRows;
   const normalizedRows = sourceRows.map((row, index) => ({
     ...(emptyRows[index] || { requiere_plan: "NO" }),
@@ -158,38 +225,24 @@ export function recalculateVersionIndicatorRows(version, emptyRows = []) {
     requiere_plan: normalizeRequierePlanFlag(row.requiere_plan),
   }));
 
-  return recalculateRowsWithIndicator(normalizedRows, formula, indicadorName);
+  return recalculateRowsWithIndicator(
+    normalizedRows,
+    formula,
+    indicadorName,
+    metaInstitucional
+  );
 }
 
-/** Normaliza todas las versiones recibidas de la API. */
 export function recalculateVersionsFromApi(versions = []) {
   return versions.map((version) => ({
     ...version,
     rows: recalculateRowsWithIndicator(
       version.rows,
       version.formula,
-      version.indicador
+      version.indicador,
+      version.meta_institucional
     ),
   }));
-}
-
-/**
- * Calcula el indicador aplicando el multiplicador detectado en la fórmula / nombre.
- */
-export function calculateIndicatorValue(
-  numerador,
-  denominador,
-  formula,
-  indicadorName = ""
-) {
-  const n = Number(numerador) || 0;
-  const d = Number(denominador) || 0;
-
-  if (d === 0) {
-    return null;
-  }
-
-  return (n / d) * getMultiplier(formula, indicadorName);
 }
 
 /** Valor del indicador listo para Chart.js (misma escala que el valor almacenado). */

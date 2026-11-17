@@ -21,7 +21,10 @@ from app.modules.auth.permissions import (
 )
 
 from app.modules.calidad.constants import MODULO_RESOLUCION_256
-from app.modules.calidad.indicator_math import calculate_indicator_value, get_multiplier
+from app.modules.calidad.indicator_math import (
+    calculate_indicator_value,
+    resolve_multiplier,
+)
 
 from app.modules.calidad.schemas import (
 
@@ -120,9 +123,71 @@ def _apply_rows(
                 row.denominador,
                 resolved_formula,
                 resolved_indicador or "",
+                meta_institucional=quality.meta_institucional,
             )
 
             setattr(quality, f"indicador_{name}", indicador_valor)
+
+
+def _recalculate_indicator_columns_for_range(
+    quality: IntranetCalidad,
+    start_month: int,
+    end_month: int,
+    formula: str | None,
+    indicador_name: str | None,
+) -> None:
+    resolved_formula = formula if formula is not None else quality.formula
+    resolved_indicador = (
+        indicador_name if indicador_name is not None else quality.indicador
+    )
+    for month, name in MONTH_NAMES.items():
+        if not (start_month <= month <= end_month):
+            continue
+        numerador = getattr(quality, f"numerador_{name}", None)
+        denominador = getattr(quality, f"denominador_{name}", None)
+        indicador_valor = calculate_indicator_value(
+            numerador,
+            denominador,
+            resolved_formula,
+            resolved_indicador or "",
+            meta_institucional=quality.meta_institucional,
+        )
+        setattr(quality, f"indicador_{name}", indicador_valor)
+
+
+def _sync_quality_header_from_version(
+    quality: IntranetCalidad,
+    version: IntranetCalidadVersion,
+) -> None:
+    if quality is None:
+        return
+    for field in ("indicador", "formula", "meta_institucional", "observatorio", "modulo"):
+        value = getattr(version, field, None)
+        if field == "modulo":
+            if not value:
+                continue
+            value = _normalize_modulo(value)
+        setattr(quality, field, value)
+
+
+def _sync_version_headers_for_calidad(
+    db: Session,
+    calidad_id: int,
+    source: IntranetCalidadVersion,
+) -> None:
+    versions = db.scalars(
+        select(IntranetCalidadVersion).where(
+            IntranetCalidadVersion.calidad_id == calidad_id
+        )
+    ).all()
+    for item in versions:
+        for field in ("indicador", "formula", "meta_institucional", "observatorio", "modulo"):
+            value = getattr(source, field, None)
+            if field == "modulo":
+                if not value:
+                    continue
+                value = _normalize_modulo(value)
+            setattr(item, field, value)
 
 
 def _clear_rows(quality: IntranetCalidad, start_month: int, end_month: int):
@@ -309,6 +374,7 @@ def _merge_excel_rows_into_quality(
             row.denominador,
             resolved_formula,
             resolved_indicador or "",
+            meta_institucional=quality.meta_institucional,
         )
 
         setattr(quality, f"indicador_{month_name}", indicador_valor)
@@ -325,7 +391,11 @@ def _refresh_period_indicators(
 
     resolved_formula = formula or quality.formula or ""
     resolved_indicador = indicador_name or quality.indicador or ""
-    multiplier = get_multiplier(resolved_formula, resolved_indicador)
+    multiplier = resolve_multiplier(
+        resolved_formula,
+        resolved_indicador,
+        quality.meta_institucional,
+    )
 
     for period_number, months in {
 
@@ -477,12 +547,21 @@ def upsert_calidad_from_excel_payload(
 
         existing.modulo = modulo
 
-        _merge_excel_rows_into_quality(
-            existing,
-            payload.rows,
-            formula=payload.formula,
-            indicador_name=payload.indicador,
-        )
+        if payload.rows:
+            _merge_excel_rows_into_quality(
+                existing,
+                payload.rows,
+                formula=payload.formula,
+                indicador_name=payload.indicador,
+            )
+        else:
+            _recalculate_indicator_columns_for_range(
+                existing,
+                1,
+                12,
+                formula,
+                indicador_name,
+            )
 
         _refresh_period_indicators(existing, formula, indicador_name)
 
@@ -498,6 +577,7 @@ def upsert_calidad_from_excel_payload(
         payload.rows,
         formula,
         indicador_name,
+        payload.meta_institucional,
     )
 
     ic = IntranetCalidad(
@@ -545,15 +625,22 @@ def upsert_calidad_from_excel_payload(
 
 
 
-def _build_monthly_values(rows, formula="", indicador_name=""):
-
-    multiplier = get_multiplier(formula, indicador_name)
+def _build_monthly_values(
+    rows,
+    formula="",
+    indicador_name="",
+    meta_institucional: str | None = None,
+):
 
     monthly_values = {}
 
     rows_by_month = {row.month: row for row in rows}
 
-
+    multiplier = resolve_multiplier(
+        formula,
+        indicador_name,
+        meta_institucional,
+    )
 
     for row in rows:
 
@@ -572,6 +659,7 @@ def _build_monthly_values(rows, formula="", indicador_name=""):
             row.denominador,
             formula,
             indicador_name,
+            meta_institucional=meta_institucional,
         )
 
 
@@ -869,22 +957,14 @@ def editar_indicador(
     _user: dict = Depends(require_escritura_resolucion_256),
 ):
 
-    if payload.rows:
-        plan_flags = {
-            row.month: _normalize_requiere_plan(getattr(row, "requiere_plan", None))
-            for row in payload.rows
-            if row.month in MONTH_NAMES
-        }
-        print(
-            f"[PUT /indicadores/{version_id}] requiere_plan por mes: {plan_flags}",
-            flush=True,
-        )
-
     update_data = payload.model_dump(exclude_unset=True, exclude={"rows"})
 
     if "observatorio" in update_data:
 
         update_data["observatorio"] = _observatorio_from_payload(update_data["observatorio"])
+
+    if "modulo" in update_data and update_data["modulo"]:
+        update_data["modulo"] = _normalize_modulo(update_data["modulo"])
 
 
 
@@ -904,12 +984,29 @@ def editar_indicador(
 
             setattr(quality, field, value)
 
-        _apply_rows(
-            quality,
-            payload.rows,
-            formula=payload.formula,
-            indicador_name=payload.indicador,
-        )
+        if "modulo" in update_data and update_data["modulo"]:
+            quality.modulo = _normalize_modulo(update_data["modulo"])
+
+        resolved_formula = quality.formula or ""
+        resolved_indicador = quality.indicador or ""
+
+        if payload.rows:
+            _apply_rows(
+                quality,
+                payload.rows,
+                formula=resolved_formula,
+                indicador_name=resolved_indicador,
+            )
+        else:
+            _recalculate_indicator_columns_for_range(
+                quality,
+                1,
+                12,
+                resolved_formula,
+                resolved_indicador,
+            )
+
+        _refresh_period_indicators(quality, resolved_formula, resolved_indicador)
 
         db.add(IntranetCalidadVersion(
 
@@ -950,23 +1047,37 @@ def editar_indicador(
 
     quality = db.get(IntranetCalidad, version.calidad_id)
 
-    if quality and "observatorio" in update_data:
+    if quality is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registro de calidad no encontrado",
+        )
 
-        quality.observatorio = update_data["observatorio"]
+    _sync_version_headers_for_calidad(db, version.calidad_id, version)
+    _sync_quality_header_from_version(quality, version)
 
-    if quality and "modulo" in update_data:
+    resolved_formula = version.formula or quality.formula or ""
+    resolved_indicador = version.indicador or quality.indicador or ""
+    end_month = version.mes_fin or 12
 
-        quality.modulo = update_data["modulo"]
+    if payload.rows:
+        _apply_rows(
+            quality,
+            payload.rows,
+            version.mes_inicio,
+            formula=resolved_formula,
+            indicador_name=resolved_indicador,
+        )
+    else:
+        _recalculate_indicator_columns_for_range(
+            quality,
+            version.mes_inicio,
+            end_month,
+            resolved_formula,
+            resolved_indicador,
+        )
 
-    _apply_rows(
-        quality,
-        payload.rows,
-        version.mes_inicio,
-        formula=payload.formula if payload.formula is not None else version.formula,
-        indicador_name=(
-            payload.indicador if payload.indicador is not None else version.indicador
-        ),
-    )
+    _refresh_period_indicators(quality, resolved_formula, resolved_indicador)
 
     nombre = payload.indicador or version.indicador or f"versión {version_id}"
     registrar_auditoria(

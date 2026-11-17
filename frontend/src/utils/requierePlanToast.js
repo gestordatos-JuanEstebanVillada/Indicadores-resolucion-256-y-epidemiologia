@@ -17,7 +17,12 @@ export function mensajeSiNoPuedeActivarRequierePlan(
     return "Este mes no tiene datos. No aplica marcar «Requiere plan».";
   }
 
-  const valor = resolveIndicatorValue(row, formula, indicador);
+  const valor = resolveIndicatorValue(
+    row,
+    formula,
+    indicador,
+    metaInstitucional
+  );
   if (valor == null) {
     return "No hay valor de indicador para evaluar la meta en este mes.";
   }
