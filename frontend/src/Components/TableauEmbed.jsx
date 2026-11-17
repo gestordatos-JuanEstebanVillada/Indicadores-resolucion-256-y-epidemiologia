@@ -9,7 +9,7 @@ const TableauDashboard = () => {
 
   useEffect(() => {
     const generarToken = async () => {
-      const authToken = localStorage.getItem('token');
+      const authToken = sessionStorage.getItem("token");
       if (!authToken) {
         setError('Debes iniciar sesión para ver el tablero.');
         return;

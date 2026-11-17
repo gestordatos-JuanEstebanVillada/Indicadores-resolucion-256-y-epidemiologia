@@ -13,19 +13,20 @@ import {
   isDefinedUserId,
   normalizeStoredRol,
   persistAuthSession,
+  purgeLegacyLocalAuthStorage,
 } from "../utils/authRoles";
 
 const AuthContext = createContext(null);
 
 function readSessionFromStorage() {
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   const rol = normalizeStoredRol(
-    localStorage.getItem("user_rol") ||
-      localStorage.getItem("role") ||
-      localStorage.getItem("portal_role") ||
+    sessionStorage.getItem("user_rol") ||
+      sessionStorage.getItem("role") ||
+      sessionStorage.getItem("portal_role") ||
       ""
   );
-  const rawUserId = localStorage.getItem("user_id");
+  const rawUserId = sessionStorage.getItem("user_id");
   let id = null;
   if (rawUserId !== null && rawUserId !== "") {
     const parsed = Number(rawUserId);
@@ -36,8 +37,8 @@ function readSessionFromStorage() {
     token,
     rol,
     roles: getUserRoles(),
-    username: localStorage.getItem("username") || "",
-    nombres: localStorage.getItem("nombres") || "",
+    username: sessionStorage.getItem("username") || "",
+    nombres: sessionStorage.getItem("nombres") || "",
     id,
     hasUserId: isDefinedUserId(id),
   };
@@ -53,6 +54,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    purgeLegacyLocalAuthStorage();
     hydrate();
   }, [hydrate]);
 

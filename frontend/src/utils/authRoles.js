@@ -1,3 +1,57 @@
+/** Claves de sesión (sessionStorage; se borran al cerrar la pestaña). */
+export const AUTH_SESSION_KEYS = [
+  "token",
+  "user_rol",
+  "role",
+  "user_roles",
+  "user_id",
+  "username",
+  "nombres",
+  "user_modulos",
+  "nombre_rol",
+  "jerarquia",
+  "es_admin_global",
+  "permite_edicion",
+  "modulos_solo_lectura",
+  "modulos_edicion",
+  "portal_role",
+];
+
+/** Elimina tokens y datos de auth persistentes en localStorage (migración Docker). */
+export function purgeLegacyLocalAuthStorage() {
+  for (const key of AUTH_SESSION_KEYS) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function sessionGet(key) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function sessionSet(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function sessionRemove(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Códigos de módulo (catálogo), no confundir con ROL en BD */
 export const ROLES = {
   ADMIN: "ADMIN",
@@ -25,7 +79,7 @@ export function normalizeStoredRol(rol) {
 }
 
 function flagFromStorage(key) {
-  const raw = localStorage.getItem(key);
+  const raw = sessionGet(key);
   if (raw === null || raw === "") {
     return false;
   }
@@ -34,7 +88,7 @@ function flagFromStorage(key) {
 
 function readJsonList(key) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = sessionGet(key);
     if (!raw) {
       return [];
     }
@@ -49,12 +103,12 @@ function readJsonList(key) {
 
 export function getJerarquia() {
   return (
-    localStorage.getItem("jerarquia") ||
-    localStorage.getItem("nombre_rol") ||
+    sessionGet("jerarquia") ||
+    sessionGet("nombre_rol") ||
     normalizeStoredRol(
-      localStorage.getItem("user_rol") ||
-        localStorage.getItem("portal_role") ||
-        localStorage.getItem("role") ||
+      sessionGet("user_rol") ||
+        sessionGet("portal_role") ||
+        sessionGet("role") ||
         ""
     )
   );
@@ -177,8 +231,10 @@ export function isDefinedUserId(id) {
 }
 
 export function persistAuthSession(data) {
+  purgeLegacyLocalAuthStorage();
+
   if (data?.token) {
-    localStorage.setItem("token", data.token);
+    sessionSet("token", data.token);
   }
 
   let jerarquia = normalizeStoredRol(
@@ -187,15 +243,18 @@ export function persistAuthSession(data) {
   if (jerarquia === "ADMINISTRADOR" || jerarquia === "ADMIN") {
     jerarquia = "ADMINISTRADOR_GLOBAL";
   }
-  localStorage.setItem("jerarquia", jerarquia);
-  localStorage.setItem("nombre_rol", jerarquia);
-  localStorage.setItem("user_rol", jerarquia);
-  localStorage.setItem("role", jerarquia);
+  sessionSet("jerarquia", jerarquia);
+  sessionSet("nombre_rol", jerarquia);
+  sessionSet("user_rol", jerarquia);
+  sessionSet("role", jerarquia);
+  if (data.portal_role) {
+    sessionSet("portal_role", String(data.portal_role));
+  }
 
   const esAdmin =
     Number(data.es_admin_global) === 1 ||
     jerarquia === "ADMINISTRADOR_GLOBAL";
-  localStorage.setItem("es_admin_global", esAdmin ? "1" : "0");
+  sessionSet("es_admin_global", esAdmin ? "1" : "0");
 
   const modulos = Array.isArray(data.modulos)
     ? data.modulos.map((m) => (m || "").toUpperCase())
@@ -207,43 +266,38 @@ export function persistAuthSession(data) {
     ? data.modulos_edicion.map((m) => (m || "").toUpperCase())
     : modulos.filter((m) => !soloLectura.includes(m));
 
-  localStorage.setItem("user_modulos", JSON.stringify(modulos));
-  localStorage.setItem("modulos_solo_lectura", JSON.stringify(soloLectura));
-  localStorage.setItem("modulos_edicion", JSON.stringify(edicion));
+  sessionSet("user_modulos", JSON.stringify(modulos));
+  sessionSet("modulos_solo_lectura", JSON.stringify(soloLectura));
+  sessionSet("modulos_edicion", JSON.stringify(edicion));
 
   const permite = esAdmin || edicion.length > 0;
-  localStorage.setItem("permite_edicion", permite ? "1" : "0");
+  sessionSet("permite_edicion", permite ? "1" : "0");
 
   const rolesSesion =
     modulos.length > 0 ? modulos : jerarquia ? [jerarquia] : [];
-  localStorage.setItem("user_roles", JSON.stringify(rolesSesion));
+  sessionSet("user_roles", JSON.stringify(rolesSesion));
 
   if (isDefinedUserId(data.id)) {
-    localStorage.setItem("user_id", String(data.id));
+    sessionSet("user_id", String(data.id));
   }
   if (data.username) {
-    localStorage.setItem("username", data.username);
+    sessionSet("username", data.username);
   }
   if (data.nombres) {
-    localStorage.setItem("nombres", data.nombres);
+    sessionSet("nombres", data.nombres);
   }
 }
 
 export function clearAuthSession() {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user_rol");
-  localStorage.removeItem("role");
-  localStorage.removeItem("user_roles");
-  localStorage.removeItem("user_id");
-  localStorage.removeItem("username");
-  localStorage.removeItem("nombres");
-  localStorage.removeItem("user_modulos");
-  localStorage.removeItem("nombre_rol");
-  localStorage.removeItem("jerarquia");
-  localStorage.removeItem("es_admin_global");
-  localStorage.removeItem("permite_edicion");
-  localStorage.removeItem("modulos_solo_lectura");
-  localStorage.removeItem("modulos_edicion");
+  for (const key of AUTH_SESSION_KEYS) {
+    sessionRemove(key);
+  }
+  purgeLegacyLocalAuthStorage();
+}
+
+/** Token JWT de la pestaña actual (sessionStorage). */
+export function getAuthToken() {
+  return sessionGet("token");
 }
 
 export const ROL_LABELS = {
