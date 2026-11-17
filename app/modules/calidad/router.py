@@ -179,6 +179,25 @@ def _modulo_from_record(
     return (version.modulo if version else None) or quality.modulo
 
 
+def _codigo_modulo_auditoria(
+    quality: IntranetCalidad | None = None,
+    version: IntranetCalidadVersion | None = None,
+    *,
+    explicit: str | None = None,
+    default: str = MODULO_RESOLUCION_256,
+) -> str:
+    from app.modules.auditoria.service import codigo_modulo_auditoria
+
+    if explicit is not None:
+        return codigo_modulo_auditoria(_normalize_modulo(explicit), fallback=default)
+    if quality is None and version is None:
+        return codigo_modulo_auditoria(None, fallback=default)
+    return codigo_modulo_auditoria(
+        _normalize_modulo(_modulo_from_record(quality, version)),
+        fallback=default,
+    )
+
+
 
 
 
@@ -752,7 +771,7 @@ def eliminar_indicador(
             db,
             actor=actor,
             accion="DELETE",
-            modulo="INDICADORES",
+            modulo=_codigo_modulo_auditoria(quality),
             detalle=f"Eliminó indicador legacy id={quality.id} (Resolución 256 / EPIDEMIOLOGIA)",
         )
         db.commit()
@@ -805,7 +824,7 @@ def eliminar_indicador(
             db,
             actor=actor,
             accion="DELETE",
-            modulo="INDICADORES",
+            modulo=_codigo_modulo_auditoria(quality, version),
             detalle=f"Eliminó indicador calidad_id={version.calidad_id}, versión id={version_id}",
         )
         db.commit()
@@ -829,7 +848,7 @@ def eliminar_indicador(
         db,
         actor=actor,
         accion="DELETE",
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(quality, version),
         detalle=f"Eliminó versión de indicador «{nombre}» (id versión {version_id})",
     )
     db.commit()
@@ -916,7 +935,7 @@ def editar_indicador(
             db,
             actor=actor,
             accion="PUT",
-            modulo="INDICADORES",
+            modulo=_codigo_modulo_auditoria(quality),
             detalle=f"Editó indicador «{payload.indicador or quality.indicador}» (legacy id={quality.id})",
         )
         db.commit()
@@ -954,7 +973,7 @@ def editar_indicador(
         db,
         actor=actor,
         accion="PUT",
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(quality, version),
         detalle=f"Editó indicador «{nombre}» (versión id={version_id})",
     )
     db.commit()
@@ -1069,7 +1088,7 @@ def crear_version(
         db,
         actor=actor,
         accion="POST",
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(calidad, version),
         detalle=(
             f"Nueva versión desde mes {payload.mes_inicio} para indicador "
             f"«{payload.indicador or calidad.indicador}» (calidad_id={calidad_id})"
@@ -1104,7 +1123,7 @@ def crear_calidad(
         db,
         actor=actor,
         accion=accion,
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(explicit=payload.modulo),
         detalle=(
             f"{'Actualizó' if accion == 'PUT' else 'Creó'} indicador «{payload.indicador}» "
             f"año {payload.year} (Resolución 256)"

@@ -11,7 +11,11 @@ from app.modules.auth.calidad_roles_data import (
     eliminar_accesos_usuario,
     listar_filas_usuario,
 )
-from app.modules.auditoria.service import registrar_auditoria
+from app.modules.auditoria.service import (
+    MODULO_SISTEMA_USUARIOS,
+    codigo_modulo_auditoria,
+    registrar_auditoria,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +23,56 @@ logger = logging.getLogger(__name__)
 DEFAULT_ID_CLASE = 2
 DEFAULT_ESTADO = "1"
 DEFAULT_PORTAL_ROL = "usuario"
+
+
+def _codigos_modulo_accesos(accesos: list[dict]) -> list[str]:
+    codigos: list[str] = []
+    for item in accesos:
+        raw = (item.get("modulo") or "").strip().upper().replace(" ", "_")
+        if raw and raw not in codigos:
+            codigos.append(raw)
+    return codigos
+
+
+def _modulo_auditoria_accesos(accesos: list[dict]) -> str:
+    codigos = _codigos_modulo_accesos(accesos)
+    if len(codigos) == 1:
+        return codigos[0]
+    return MODULO_SISTEMA_USUARIOS
+
+
+def registrar_auditoria_cambio_accesos(
+    db: Session,
+    *,
+    actor: str,
+    login: str,
+    accesos: list[dict],
+    accion: str = "PUT",
+) -> None:
+    codigos = _codigos_modulo_accesos(accesos)
+    verbo = "Asignó" if accion.upper() == "POST" else "Actualizó"
+    detalle = f"{verbo} accesos de Indicadores para {login}"
+    if codigos:
+        detalle += f" (módulos: {', '.join(codigos)})"
+    registrar_auditoria(
+        db,
+        actor=actor,
+        accion=accion,
+        modulo=codigo_modulo_auditoria(
+            _modulo_auditoria_accesos(accesos),
+            fallback=MODULO_SISTEMA_USUARIOS,
+        ),
+        detalle=detalle,
+    )
+
+
+def _modulos_desde_filas(filas) -> list[str]:
+    out: list[str] = []
+    for fila in filas:
+        raw = (getattr(fila, "modulo", None) or "").strip().upper().replace(" ", "_")
+        if raw and raw not in out:
+            out.append(raw)
+    return out
 
 
 def normalize_login(value: str) -> str:
@@ -109,12 +163,19 @@ def crear_usuario_con_accesos(
         db.flush()
 
         roles_repo.reemplazar_accesos(nuevo_usuario.id, jerarquia, accesos)
+        codigos = _codigos_modulo_accesos(accesos)
+        detalle = f"Creó usuario {login} con accesos por módulo"
+        if codigos:
+            detalle += f" (módulos: {', '.join(codigos)})"
         registrar_auditoria(
             db,
             actor=actor,
             accion="POST",
-            modulo="USUARIOS",
-            detalle=f"Creó usuario {login} con accesos por módulo",
+            modulo=codigo_modulo_auditoria(
+                _modulo_auditoria_accesos(accesos),
+                fallback=MODULO_SISTEMA_USUARIOS,
+            ),
+            detalle=detalle,
         )
         db.commit()
         db.refresh(nuevo_usuario)
@@ -162,15 +223,21 @@ def revocar_solo_acceso_indicadores(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="El usuario no tiene accesos en Indicadores",
             )
+        filas = listar_filas_usuario(db, usuario_id)
+        modulos = _modulos_desde_filas(filas)
         user = db.get(Usuario, usuario_id)
         login = user.usuario if user is not None else str(usuario_id)
         eliminar_accesos_usuario(db, usuario_id)
+        detalle = f"Revocó accesos de Indicadores para {login}"
+        if modulos:
+            detalle += f" (módulos: {', '.join(modulos)})"
+        audit_mod = modulos[0] if len(modulos) == 1 else MODULO_SISTEMA_USUARIOS
         registrar_auditoria(
             db,
             actor=actor,
             accion="DELETE",
-            modulo="USUARIOS",
-            detalle=f"Revocó accesos de Indicadores para {login}",
+            modulo=codigo_modulo_auditoria(audit_mod, fallback=MODULO_SISTEMA_USUARIOS),
+            detalle=detalle,
         )
         db.commit()
     except HTTPException:

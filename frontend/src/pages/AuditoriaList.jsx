@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 
-import { API_URL, apiFetch } from "../config/api";
+import { API_URL, apiFetch, readApiErrorMessage } from "../config/api";
 import { esAdminGlobal, getUserModulos } from "../utils/authRoles";
 
 const PAGE_SIZE = 50;
@@ -37,6 +38,7 @@ export default function AuditoriaList() {
   const [modulo, setModulo] = useState("");
   const [filtroUsuario, setFiltroUsuario] = useState("");
   const [search, setSearch] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const opcionesModulo = useMemo(() => {
     const filtrosGlobales = [
@@ -51,7 +53,10 @@ export default function AuditoriaList() {
     if (esAdminGlobal()) {
       return [...filtrosGlobales, ...asignados];
     }
-    return asignados;
+    return [
+      ...asignados,
+      { value: "USUARIOS", label: "Usuarios / accesos (su área)" },
+    ];
   }, []);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -69,6 +74,7 @@ export default function AuditoriaList() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -79,7 +85,11 @@ export default function AuditoriaList() {
       }
       const response = await apiFetch(`${API_URL}/auditoria?${params}`);
       if (!response.ok) {
-        throw new Error("No se pudo cargar la auditoría.");
+        const msg = await readApiErrorMessage(
+          response,
+          "No se pudo cargar la auditoría."
+        );
+        throw new Error(msg);
       }
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -89,7 +99,10 @@ export default function AuditoriaList() {
         setRows(data.items || []);
         setTotalCount(data.total_count ?? data.items?.length ?? 0);
       }
-    } catch {
+    } catch (err) {
+      const msg = err?.message || "No se pudo cargar la auditoría.";
+      setLoadError(msg);
+      toast.error(msg);
       setRows([]);
       setTotalCount(0);
     } finally {
@@ -135,6 +148,15 @@ export default function AuditoriaList() {
           Registro de creaciones, ediciones y eliminaciones en indicadores, planes y usuarios.
         </p>
       </div>
+
+      {loadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          {loadError}
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <input

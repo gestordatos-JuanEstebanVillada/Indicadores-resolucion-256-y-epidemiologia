@@ -38,6 +38,7 @@ from app.modules.usuarios.service import (
     crear_usuario_con_accesos,
     find_user_by_login,
     normalize_login,
+    registrar_auditoria_cambio_accesos,
     revocar_solo_acceso_indicadores,
 )
 
@@ -247,6 +248,7 @@ def asignar_rol(
     db: Session = Depends(get_db),
     roles_repo: CalidadRolesRepository = Depends(_get_roles_repo),
     requester: dict = Depends(get_current_gestion_admin),
+    actor: str = Depends(get_audit_actor),
 ):
     jerarquia_asignacion = _jerarquia_para_gestion_area(
         requester, payload.jerarquia
@@ -261,10 +263,18 @@ def asignar_rol(
             detail="No existe un usuario institucional con ese login",
         )
     try:
+        accesos = _accesos_payload(payload.accesos)
         roles_repo.reemplazar_accesos(
             user.id,
             jerarquia_asignacion,
-            _accesos_payload(payload.accesos),
+            accesos,
+        )
+        registrar_auditoria_cambio_accesos(
+            db,
+            actor=actor,
+            login=user.usuario or payload.usuario,
+            accesos=accesos,
+            accion="POST",
         )
         db.commit()
     except ValueError as exc:
@@ -283,6 +293,7 @@ def actualizar_accesos(
     db: Session = Depends(get_db),
     roles_repo: CalidadRolesRepository = Depends(_get_roles_repo),
     requester: dict = Depends(get_current_gestion_admin),
+    actor: str = Depends(get_audit_actor),
 ):
     assert_usuario_visible_en_gestion(roles_repo, requester, user_id)
     jerarquia_asignacion = _jerarquia_para_gestion_area(
@@ -305,6 +316,13 @@ def actualizar_accesos(
             user_id,
             jerarquia_final,
             accesos_final,
+        )
+        registrar_auditoria_cambio_accesos(
+            db,
+            actor=actor,
+            login=user.usuario or str(user_id),
+            accesos=accesos_final,
+            accion="PUT",
         )
         db.commit()
     except ValueError as exc:

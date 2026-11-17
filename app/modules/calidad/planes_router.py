@@ -14,7 +14,7 @@ from app.modules.calidad.planes_schemas import (
 )
 from app.modules.calidad.router import MONTH_NAMES, _normalize_modulo, _normalize_requiere_plan
 from app.modules.auditoria.dependencies import get_audit_actor
-from app.modules.auditoria.service import registrar_auditoria
+from app.modules.auditoria.service import codigo_modulo_auditoria, registrar_auditoria
 from app.modules.auth.admin_dependencies import get_current_token_payload
 from app.modules.auth.module_access import (
     filtro_modulos_planes,
@@ -203,7 +203,10 @@ def crear_plan_mejora(
         db,
         actor=actor,
         accion="POST",
-        modulo="PLANES_MEJORA",
+        modulo=codigo_modulo_auditoria(
+            plan.modulo or quality.modulo,
+            fallback="PLANES_MEJORA",
+        ),
         detalle=(
             f"Creó plan de mejora para indicador id={payload.calidad_id}, "
             f"año {payload.year}, mes {payload.mes} ({MONTH_LABELS.get(payload.mes, payload.mes)})"
@@ -315,20 +318,36 @@ def actualizar_estado_masivo_planes(
             detail="No se encontraron planes con los IDs indicados",
         )
 
+    planes = db.scalars(
+        select(IntranetPlanMejora).where(IntranetPlanMejora.id.in_(existing_ids))
+    ).all()
+    modulos_plan = sorted(
+        {
+            _normalize_modulo(p.modulo)
+            for p in planes
+            if _normalize_modulo(p.modulo)
+        }
+    )
     db.execute(
         update(IntranetPlanMejora)
         .where(IntranetPlanMejora.id.in_(existing_ids))
         .values(estado=nuevo_estado)
     )
+    audit_modulo = (
+        modulos_plan[0]
+        if len(modulos_plan) == 1
+        else codigo_modulo_auditoria(None, fallback="PLANES_MEJORA")
+    )
     registrar_auditoria(
         db,
         actor=actor,
         accion="PATCH",
-        modulo="PLANES_MEJORA",
+        modulo=codigo_modulo_auditoria(audit_modulo, fallback="PLANES_MEJORA"),
         detalle=(
             f"Actualizó estado masivo de {len(existing_ids)} plan(es) a {nuevo_estado}. "
             f"IDs: {', '.join(str(i) for i in existing_ids[:20])}"
             f"{'…' if len(existing_ids) > 20 else ''}"
+            + (f" Módulos: {', '.join(modulos_plan)}." if modulos_plan else "")
         ),
     )
     db.commit()

@@ -3,22 +3,22 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db
-from app.core.ids import is_defined_user_id
 from app.models import IntranetCalidadAuditoria
 from app.modules.auth.admin_dependencies import get_current_gestion_admin
 from app.modules.auth.permissions import (
     es_admin_global_token,
     es_administrador_area_token,
-    modulos_en_token_set,
 )
 from app.modules.auditoria.schemas import AuditoriaOut, AuditoriaPageOut
-from app.modules.usuarios.roles_repository import CalidadRolesRepository
+from app.modules.auditoria.scope import (
+    condicion_alcance_administrador_area,
+    condicion_filtro_modulo_opcional,
+    expr_modulo_auditoria,
+    modulos_anclados_usuario,
+    normalizar_codigo_modulo,
+)
 
 router = APIRouter(prefix="/auditoria", tags=["Auditoría"])
-
-
-def _normalizar_modulo_filtro(value: str) -> str:
-    return (value or "").strip().upper().replace(" ", "_")
 
 
 def _assert_puede_ver_auditoria(requester: dict) -> None:
@@ -32,29 +32,11 @@ def _assert_puede_ver_auditoria(requester: dict) -> None:
     )
 
 
-def _modulos_auditoria_area(
-    db: Session,
-    requester: dict,
-) -> set[str]:
-    """MODULO en INTRANET_CALIDAD_ROLES (misma lista que en el token)."""
-    uid = requester.get("id")
-    if is_defined_user_id(uid):
-        modulos = set(CalidadRolesRepository(db).modulos_de_usuario(int(uid)))
-        if modulos:
-            return {_normalizar_modulo_filtro(m) for m in modulos if m}
-    token_mods = modulos_en_token_set(requester)
-    return {_normalizar_modulo_filtro(m) for m in token_mods if m}
-
-
-def _modulos_filtro_auditoria(db: Session, requester: dict) -> set[str] | None:
-    """
-    None = administrador global (sin filtro por módulo).
-    Set = administrador de área: solo filas con modulo IN (sus MODULO).
-    """
+def _alcance_auditoria(db: Session, requester: dict) -> set[str] | None:
     _assert_puede_ver_auditoria(requester)
     if es_admin_global_token(requester):
         return None
-    modulos = _modulos_auditoria_area(db, requester)
+    modulos = modulos_anclados_usuario(db, requester)
     if not modulos:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -63,25 +45,22 @@ def _modulos_filtro_auditoria(db: Session, requester: dict) -> set[str] | None:
     return modulos
 
 
-def _aplicar_filtro_modulo(stmt, alcance: set[str] | None, modulo: str | None):
-    if alcance is None:
-        if modulo:
-            return stmt.where(
-                IntranetCalidadAuditoria.modulo
-                == _normalizar_modulo_filtro(modulo)
-            )
-        return stmt
-    if not alcance:
-        return stmt.where(IntranetCalidadAuditoria.id == -1)
-    if modulo:
-        codigo = _normalizar_modulo_filtro(modulo)
-        if codigo not in alcance:
+def _aplicar_filtros(stmt, db: Session, alcance: set[str] | None, modulo: str | None):
+    if alcance is not None:
+        stmt = stmt.where(condicion_alcance_administrador_area(db, alcance))
+    extra = condicion_filtro_modulo_opcional(alcance, modulo)
+    if extra is not None:
+        if extra is False:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Sin permiso para consultar auditoría de este módulo",
             )
-        return stmt.where(IntranetCalidadAuditoria.modulo == codigo)
-    return stmt.where(IntranetCalidadAuditoria.modulo.in_(sorted(alcance)))
+        stmt = stmt.where(extra)
+    elif alcance is None and modulo:
+        stmt = stmt.where(
+            expr_modulo_auditoria() == normalizar_codigo_modulo(modulo)
+        )
+    return stmt
 
 
 @router.get("", response_model=AuditoriaPageOut)
@@ -99,16 +78,16 @@ def listar_auditoria(
         skip = (page - 1) * page_size
         limit = page_size
 
-    alcance = _modulos_filtro_auditoria(db, requester)
-    base = select(IntranetCalidadAuditoria)
-    base = _aplicar_filtro_modulo(base, alcance, modulo)
+    alcance = _alcance_auditoria(db, requester)
 
-    count_stmt = select(func.count(IntranetCalidadAuditoria.id))
-    count_stmt = _aplicar_filtro_modulo(count_stmt, alcance, modulo)
+    count_stmt = select(func.count()).select_from(IntranetCalidadAuditoria)
+    count_stmt = _aplicar_filtros(count_stmt, db, alcance, modulo)
     total_count = int(db.scalar(count_stmt) or 0)
 
+    data_stmt = select(IntranetCalidadAuditoria)
+    data_stmt = _aplicar_filtros(data_stmt, db, alcance, modulo)
     data_stmt = (
-        base.order_by(
+        data_stmt.order_by(
             IntranetCalidadAuditoria.created_at.desc(),
             IntranetCalidadAuditoria.id.desc(),
         )

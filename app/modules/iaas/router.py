@@ -10,6 +10,7 @@ from app.modules.calidad.router import (
     _apply_rows,
     _clear_rows,
     _legacy_quality_to_dict,
+    _codigo_modulo_auditoria,
     _modulo_from_record,
     _normalize_modulo,
     _observatorio_from_payload,
@@ -95,7 +96,7 @@ def eliminar_indicador_iaas(
             db,
             actor=actor,
             accion="DELETE",
-            modulo="INDICADORES",
+            modulo=_codigo_modulo_auditoria(quality, default=MODULO_EPIDEMIOLOGIA),
             detalle=f"Eliminó indicador IAAS legacy id={quality.id}",
         )
         db.commit()
@@ -128,7 +129,7 @@ def eliminar_indicador_iaas(
             db,
             actor=actor,
             accion="DELETE",
-            modulo="INDICADORES",
+            modulo=_codigo_modulo_auditoria(quality, version, default=MODULO_EPIDEMIOLOGIA),
             detalle=f"Eliminó indicador IAAS calidad_id={version.calidad_id}, versión {version_id}",
         )
         db.commit()
@@ -144,7 +145,7 @@ def eliminar_indicador_iaas(
         db,
         actor=actor,
         accion="DELETE",
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(quality, version, default=MODULO_EPIDEMIOLOGIA),
         detalle=f"Eliminó versión IAAS «{nombre}» (id {version_id})",
     )
     db.commit()
@@ -194,7 +195,7 @@ def editar_indicador_iaas(
             db,
             actor=actor,
             accion="PUT",
-            modulo="INDICADORES",
+            modulo=_codigo_modulo_auditoria(quality, version, default=MODULO_EPIDEMIOLOGIA),
             detalle=f"Editó indicador IAAS «{payload.indicador or quality.indicador}»",
         )
         db.commit()
@@ -227,7 +228,7 @@ def editar_indicador_iaas(
         db,
         actor=actor,
         accion="PUT",
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(quality, version, default=MODULO_EPIDEMIOLOGIA),
         detalle=f"Editó indicador IAAS «{nombre}» (versión {version_id})",
     )
     db.commit()
@@ -297,7 +298,7 @@ def crear_version_iaas(
         db,
         actor=actor,
         accion="POST",
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(calidad, version, default=MODULO_EPIDEMIOLOGIA),
         detalle=(
             f"Nueva versión IAAS mes {payload.mes_inicio} — "
             f"«{payload.indicador or calidad.indicador}» (calidad_id={calidad_id})"
@@ -325,7 +326,7 @@ def crear_iaas(
         db,
         actor=actor,
         accion=accion,
-        modulo="INDICADORES",
+        modulo=_codigo_modulo_auditoria(explicit=payload.modulo, default=MODULO_EPIDEMIOLOGIA),
         detalle=(
             f"{'Actualizó' if accion == 'PUT' else 'Creó'} indicador IAAS «{payload.indicador}» "
             f"año {payload.year}"
