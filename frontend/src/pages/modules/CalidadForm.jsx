@@ -9,8 +9,10 @@ import IndicatorInfoSection from "../../Components/calidad/IndicatorInfoSection"
 import MonthlyResultsTable from "../../Components/calidad/MonthlyResultsTable";
 import Resolucion256Header from "../../Components/calidad/Resolucion256Header";
 import StatusMessage from "../../Components/calidad/StatusMessage";
+import toast from "react-hot-toast";
 import {
   createEmptyRows,
+  ENABLE_EXCEL_UPLOAD,
   months,
 } from "../../utils/calidadFormConstants";
 import { apiFetch } from "../../config/api";
@@ -28,7 +30,11 @@ import {
   normalizeObservatorioForPayload,
 } from "../../utils/moduleConstants";
 import { canMutateModulo } from "../../utils/authRoles";
-import { legacyModuloCodigoFromPath, urlModuloCalidad } from "../../utils/moduloApi";
+import {
+  appPathModuloIndicadores,
+  legacyModuloCodigoFromPath,
+  urlModuloCalidad,
+} from "../../utils/moduloApi";
 import {
   extractYearFromFilename,
   indicadorToApiPayload,
@@ -63,6 +69,8 @@ export default function CalidadForm() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const indicadoresListPath = appPathModuloIndicadores(moduloCodigo);
   const [parsedIndicators, setParsedIndicators] = useState([]);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [pendingUpload, setPendingUpload] = useState(null);
@@ -514,8 +522,11 @@ export default function CalidadForm() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
 
-    setLoading(true);
+    setIsSubmitting(true);
     setMessage("");
     setMessageType("");
 
@@ -553,23 +564,17 @@ export default function CalidadForm() {
         );
       }
 
-      setMessage(
-        `Información guardada correctamente. Registros: ${data.created ?? rows.length}`
-      );
-      setMessageType("success");
-      setIndicador("");
-      setFormula("");
-      setMeta("");
-      setObservatorio("");
-      setRows(createEmptyRows());
+      toast.success("Indicador creado exitosamente", { duration: 4000 });
+      navigate(indicadoresListPath, { replace: true });
     } catch (error) {
       console.error(error);
-      setMessage(
-        error.message || "Error de conexión con el servidor."
-      );
+      const detail =
+        error.message || "Error de conexión con el servidor.";
+      setMessage(detail);
       setMessageType("error");
+      toast.error(detail, { duration: 5000 });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -617,7 +622,7 @@ export default function CalidadForm() {
       <Resolucion256Header
         year={year}
         onYearChange={setYear}
-        onBack={() => navigate("/app")}
+        onBack={() => navigate(indicadoresListPath)}
       />
 
       {readOnly ? (
@@ -626,16 +631,21 @@ export default function CalidadForm() {
         </p>
       ) : null}
 
-      <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}>
-        <ExcelUploadSection
-          fileInputRef={fileInputRef}
-          onDownloadTemplate={downloadTemplate}
-          onExcelUpload={handleExcelUpload}
-          onBulkSave={handleBulkSave}
-          parsedIndicatorsCount={parsedIndicators.length}
-          loading={loading}
-          readOnly={readOnly}
-        />
+      <form
+        className="space-y-5"
+        onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}
+      >
+        {ENABLE_EXCEL_UPLOAD ? (
+          <ExcelUploadSection
+            fileInputRef={fileInputRef}
+            onDownloadTemplate={downloadTemplate}
+            onExcelUpload={handleExcelUpload}
+            onBulkSave={handleBulkSave}
+            parsedIndicatorsCount={parsedIndicators.length}
+            loading={loading}
+            readOnly={readOnly}
+          />
+        ) : null}
 
         <IndicatorInfoSection
           indicador={indicador}
@@ -646,6 +656,7 @@ export default function CalidadForm() {
           onFormulaChange={setFormula}
           onMetaChange={setMeta}
           onObservatorioChange={setObservatorio}
+          sectionSubtitle="Datos generales de la Resolución 256"
         />
 
         <StatusMessage
@@ -663,9 +674,9 @@ export default function CalidadForm() {
         />
 
         <FormActions
-          loading={loading}
+          loading={isSubmitting}
           readOnly={readOnly}
-          onCancel={() => navigate("/app")}
+          onCancel={() => navigate(indicadoresListPath)}
         />
       </form>
     </div>

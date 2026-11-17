@@ -9,10 +9,19 @@ import IndicatorInfoSection from "../../Components/calidad/IndicatorInfoSection"
 import MonthlyResultsTable from "../../Components/calidad/MonthlyResultsTable";
 import IaasHeader from "../../Components/Iaas/IaasHeader";
 import StatusMessage from "../../Components/calidad/StatusMessage";
-import { createEmptyRows, months } from "../../utils/calidadFormConstants";
+import toast from "react-hot-toast";
+import {
+  createEmptyRows,
+  ENABLE_EXCEL_UPLOAD,
+  months,
+} from "../../utils/calidadFormConstants";
 import { apiFetch } from "../../config/api";
 import { canMutateModulo } from "../../utils/authRoles";
-import { legacyModuloCodigoFromPath, urlModuloCalidad } from "../../utils/moduloApi";
+import {
+  appPathModuloIndicadores,
+  legacyModuloCodigoFromPath,
+  urlModuloCalidad,
+} from "../../utils/moduloApi";
 import {
   buildPlantillaUploadSummary,
   buildTableroUploadSummary,
@@ -55,6 +64,8 @@ export default function IaasForm() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const indicadoresListPath = appPathModuloIndicadores(moduloCodigo);
   const [parsedIndicators, setParsedIndicators] = useState([]);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [pendingUpload, setPendingUpload] = useState(null);
@@ -461,8 +472,11 @@ export default function IaasForm() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
 
-    setLoading(true);
+    setIsSubmitting(true);
     setMessage("");
     setMessageType("");
 
@@ -498,23 +512,17 @@ export default function IaasForm() {
         );
       }
 
-      setMessage(
-        `Información guardada correctamente. Registros: ${data.created ?? rows.length}`
-      );
-      setMessageType("success");
-      setIndicador("");
-      setFormula("");
-      setMeta("");
-      setObservatorio("");
-      setRows(createEmptyRows());
+      toast.success("Indicador creado exitosamente", { duration: 4000 });
+      navigate(indicadoresListPath, { replace: true });
     } catch (error) {
       console.error(error);
-      setMessage(
-        error.message || "Error de conexión con el servidor."
-      );
+      const detail =
+        error.message || "Error de conexión con el servidor.";
+      setMessage(detail);
       setMessageType("error");
+      toast.error(detail, { duration: 5000 });
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -538,7 +546,7 @@ export default function IaasForm() {
       <IaasHeader
         year={year}
         onYearChange={setYear}
-        onBack={() => navigate("/app")}
+        onBack={() => navigate(indicadoresListPath)}
       />
 
       {readOnly ? (
@@ -547,17 +555,22 @@ export default function IaasForm() {
         </p>
       ) : null}
 
-      <form onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}>
-        <ExcelUploadSection
-          fileInputRef={fileInputRef}
-          onDownloadTemplate={downloadTemplate}
-          onExcelUpload={handleExcelUpload}
-          onBulkSave={handleBulkSave}
-          parsedIndicatorsCount={parsedIndicators.length}
-          loading={loading}
-          readOnly={readOnly}
-          uploadDescription='Digita los datos, carga la plantilla simple o el tablero oficial (hoja "INDICADORES IAAS").'
-        />
+      <form
+        className="space-y-5"
+        onSubmit={readOnly ? (e) => e.preventDefault() : handleSubmit}
+      >
+        {ENABLE_EXCEL_UPLOAD ? (
+          <ExcelUploadSection
+            fileInputRef={fileInputRef}
+            onDownloadTemplate={downloadTemplate}
+            onExcelUpload={handleExcelUpload}
+            onBulkSave={handleBulkSave}
+            parsedIndicatorsCount={parsedIndicators.length}
+            loading={loading}
+            readOnly={readOnly}
+            uploadDescription='Digita los datos, carga la plantilla simple o el tablero oficial (hoja "INDICADORES IAAS").'
+          />
+        ) : null}
 
         <IndicatorInfoSection
           indicador={indicador}
@@ -568,6 +581,7 @@ export default function IaasForm() {
           onFormulaChange={setFormula}
           onMetaChange={setMeta}
           onObservatorioChange={setObservatorio}
+          sectionSubtitle="Datos generales de indicadores IAAS (epidemiología)"
         />
 
         <StatusMessage
@@ -585,9 +599,9 @@ export default function IaasForm() {
         />
 
         <FormActions
-          loading={loading}
+          loading={isSubmitting}
           readOnly={readOnly}
-          onCancel={() => navigate("/app/infecciones/indicadores")}
+          onCancel={() => navigate(indicadoresListPath)}
         />
       </form>
     </div>

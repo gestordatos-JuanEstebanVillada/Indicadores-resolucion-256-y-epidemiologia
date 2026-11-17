@@ -25,6 +25,11 @@ export function urlModuloCalidad(moduloCodigo) {
   return `${moduloApiBase(moduloCodigo)}/calidad`;
 }
 
+export function appPathModuloIndicadores(moduloCodigo) {
+  const codigo = normalizeModuloCodigo(moduloCodigo);
+  return `/app/${encodeURIComponent(codigo)}/indicadores`;
+}
+
 export function legacyModuloCodigoFromPath(moduloCodigo) {
   const codigo = normalizeModuloCodigo(moduloCodigo);
   if (!codigo) {

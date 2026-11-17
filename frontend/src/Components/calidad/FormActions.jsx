@@ -1,4 +1,4 @@
-import { Save } from "lucide-react";
+import { Loader2, Save } from "lucide-react";
 
 export default function FormActions({
   loading,
@@ -6,11 +6,11 @@ export default function FormActions({
   readOnly = false,
 }) {
   return (
-    <div className="flex justify-end gap-3 mt-6">
+    <div className="mt-8 flex flex-col-reverse gap-3 border-t border-gray-100 pt-6 sm:flex-row sm:items-center sm:justify-end">
       <button
         type="button"
         onClick={onCancel}
-        className="px-5 py-3 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium"
+        className="inline-flex justify-center rounded-xl border border-gray-300 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 focus-visible:ring-offset-2"
       >
         {readOnly ? "Volver" : "Cancelar"}
       </button>
@@ -19,9 +19,13 @@ export default function FormActions({
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-pink-600 hover:bg-pink-700 disabled:opacity-50 text-white font-semibold shadow-sm"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-pink-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-pink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Save size={18} />
+          {loading ? (
+            <Loader2 size={18} className="animate-spin" aria-hidden />
+          ) : (
+            <Save size={18} aria-hidden />
+          )}
           {loading ? "Guardando..." : "Guardar información"}
         </button>
       ) : null}

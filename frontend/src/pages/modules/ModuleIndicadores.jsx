@@ -1,12 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CornerDownRight, Edit3, Eye, Plus, Save, Search, Trash2, X } from "lucide-react";
+import {
+  CornerDownRight,
+  Edit3,
+  Eye,
+  Loader2,
+  Plus,
+  Save,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import ModalOverlay from "../../Components/ModalOverlay";
 import MetaInstitucionalFields from "../../Components/calidad/MetaInstitucionalFields";
 import MesRequierePlanCell from "../../Components/MesRequierePlanCell";
 import { dispatchIncumplimientosRefresh } from "../../utils/incumplimientosEvents";
 import { attemptToggleRequierePlanInRows } from "../../utils/attemptToggleRequierePlan";
 import { buildVersionUpdatePayload } from "../../utils/requierePlanRows";
+import toast from "react-hot-toast";
 import { toastRequierePlanGuardadoError } from "../../utils/requierePlanToast";
 import {
   calculateIndicatorValue,
@@ -212,6 +223,7 @@ export default function Indicadores() {
   const [startMonth, setStartMonth] = useState(9);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [rows, setRows] = useState(emptyRows());
   const [originalRows, setOriginalRows] = useState(emptyRows());
   const [preview, setPreview] = useState(null);
@@ -304,46 +316,68 @@ export default function Indicadores() {
 
   async function saveVersion(event) {
     event.preventDefault();
-    const response = await apiFetch(`${indicadoresBase}/${editingId}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        ...form,
-        observatorio: normalizeObservatorioForPayload(form.observatorio),
-        modulo: moduloCodigo,
-        rows,
-      }),
-    });
-    if (!response.ok) {
-      const data = await response.json();
-      setMessage(data.detail || "No se pudo actualizar el indicador.");
+    if (isSubmitting) {
       return;
     }
-    setEditingId(null);
-    setMessage("Indicador actualizado correctamente.");
-    dispatchIncumplimientosRefresh();
-    await loadVersions();
+    setIsSubmitting(true);
+    try {
+      const response = await apiFetch(`${indicadoresBase}/${editingId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...form,
+          observatorio: normalizeObservatorioForPayload(form.observatorio),
+          modulo: moduloCodigo,
+          rows,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        const detail = data.detail || "No se pudo actualizar el indicador.";
+        setMessage(detail);
+        toast.error(detail, { duration: 5000 });
+        return;
+      }
+      setEditingId(null);
+      setMessage("");
+      toast.success("Indicador actualizado exitosamente", { duration: 4000 });
+      dispatchIncumplimientosRefresh();
+      await loadVersions();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function saveNewVersion(event) {
     event.preventDefault();
-    const response = await apiFetch(`${indicadoresBase}/${newVersionFor}/versiones`, {
-      method: "POST",
-      body: JSON.stringify({
-        ...form,
-        observatorio: normalizeObservatorioForPayload(form.observatorio),
-        modulo: moduloCodigo,
-        mes_inicio: Number(startMonth),
-        rows,
-      }),
-    });
-    if (!response.ok) {
-      const data = await response.json();
-      setMessage(data.detail || "No se pudo crear la nueva versión.");
+    if (isSubmitting) {
       return;
     }
-    setNewVersionFor(null);
-    setMessage("Nueva versión creada correctamente.");
-    await loadVersions();
+    setIsSubmitting(true);
+    try {
+      const response = await apiFetch(`${indicadoresBase}/${newVersionFor}/versiones`, {
+        method: "POST",
+        body: JSON.stringify({
+          ...form,
+          observatorio: normalizeObservatorioForPayload(form.observatorio),
+          modulo: moduloCodigo,
+          mes_inicio: Number(startMonth),
+          rows,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        const detail = data.detail || "No se pudo crear la nueva versión.";
+        setMessage(detail);
+        toast.error(detail, { duration: 5000 });
+        return;
+      }
+      setNewVersionFor(null);
+      setMessage("");
+      toast.success("Nueva versión creada correctamente", { duration: 4000 });
+      await loadVersions();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   async function deleteVersion() {
@@ -695,14 +729,38 @@ export default function Indicadores() {
               </table>
             </div>
           </div>
-          <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium text-white hover:bg-pink-700">
-            <Save size={16} /> Guardar cambios
-          </button>
-          {editingId !== null && (
-            <button type="button" onClick={deleteVersion} className="ml-2 inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50">
-              <Trash2 size={16} /> Eliminar
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-5">
+            <button
+              type="button"
+              onClick={cancelForm}
+              disabled={isSubmitting}
+              className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200 disabled:opacity-60"
+            >
+              Cancelar
             </button>
-          )}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 rounded-xl bg-pink-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-pink-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <Loader2 size={16} className="animate-spin" aria-hidden />
+              ) : (
+                <Save size={16} aria-hidden />
+              )}
+              {isSubmitting ? "Guardando..." : "Guardar información"}
+            </button>
+            {editingId !== null && (
+              <button
+                type="button"
+                onClick={deleteVersion}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                <Trash2 size={16} /> Eliminar
+              </button>
+            )}
+          </div>
           </div>
         </form>
         </ModalOverlay>

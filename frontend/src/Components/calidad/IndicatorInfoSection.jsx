@@ -11,11 +11,15 @@ export default function IndicatorInfoSection({
   onFormulaChange,
   onMetaChange,
   onObservatorioChange,
+  sectionSubtitle = "Complete los datos de cabecera del indicador",
 }) {
+  const inputClass =
+    "w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder:text-gray-400 shadow-sm transition focus:border-pink-500 focus:outline-none focus:ring-2 focus:ring-pink-100";
+
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm mt-6">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-pink-50 rounded-lg flex items-center justify-center">
+    <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm ring-1 ring-gray-100">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-50">
           <FileSpreadsheet
             size={21}
             className="text-pink-600"
@@ -23,19 +27,19 @@ export default function IndicatorInfoSection({
         </div>
 
         <div>
-          <h3 className="font-semibold text-gray-800">
+          <h3 className="text-base font-semibold text-gray-900">
             Información del indicador
           </h3>
 
-          <p className="text-sm text-gray-500">
-            Datos generales de la Resolución 256
+          <p className="mt-0.5 text-sm text-gray-500">
+            {sectionSubtitle}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="mb-2 block text-sm font-semibold text-gray-800">
             Indicador
           </label>
 
@@ -43,7 +47,7 @@ export default function IndicatorInfoSection({
             rows={2}
             value={indicador}
             onChange={(e) => onIndicadorChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 focus:border-pink-500 outline-none resize-none"
+            className={`${inputClass} resize-none`}
           />
         </div>
 
@@ -56,7 +60,7 @@ export default function IndicatorInfoSection({
         </div>
 
         <div className="lg:col-span-3">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="mb-2 block text-sm font-semibold text-gray-800">
             Fórmula
           </label>
 
@@ -64,12 +68,12 @@ export default function IndicatorInfoSection({
             rows={2}
             value={formula}
             onChange={(e) => onFormulaChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 focus:border-pink-500 outline-none resize-none"
+            className={`${inputClass} resize-none`}
           />
         </div>
 
         <div className="lg:col-span-3">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="mb-2 block text-sm font-semibold text-gray-800">
             Observatorio
           </label>
 
@@ -77,10 +81,10 @@ export default function IndicatorInfoSection({
             value={observatorio}
             onChange={(e) => onObservatorioChange(e.target.value)}
             placeholder="Valor del observatorio (ej. 9,24)"
-            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-pink-100 focus:border-pink-500 outline-none"
+            className={inputClass}
           />
         </div>
       </div>
-    </div>
+    </section>
   );
 }

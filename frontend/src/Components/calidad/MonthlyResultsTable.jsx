@@ -12,14 +12,14 @@ export default function MonthlyResultsTable({
   formatIndicator,
 }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm mt-6 overflow-hidden">
-      <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+    <section className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm ring-1 ring-gray-100">
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
         <div>
-          <h3 className="font-semibold text-gray-800">
+          <h3 className="text-base font-semibold text-gray-900">
             Resultados mensuales
           </h3>
 
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-0.5 text-sm text-gray-500">
             Ingrese numerador y denominador para cada mes.
           </p>
         </div>
@@ -27,7 +27,7 @@ export default function MonthlyResultsTable({
         <button
           type="button"
           onClick={onResetForm}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800"
+          className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm text-gray-500 transition hover:bg-gray-50 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200"
         >
           <RefreshCcw size={16} />
           Limpiar
@@ -132,6 +132,6 @@ export default function MonthlyResultsTable({
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 }

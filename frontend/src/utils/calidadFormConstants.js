@@ -1,5 +1,8 @@
 export { API_URL } from "../config/api";
 
+/** Fase futura: habilitar carga masiva por Excel en el formulario manual. */
+export const ENABLE_EXCEL_UPLOAD = false;
+
 export const months = [
   { id: 1, name: "ENERO" },
   { id: 2, name: "FEBRERO" },
