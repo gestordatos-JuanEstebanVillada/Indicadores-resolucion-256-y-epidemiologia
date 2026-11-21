@@ -656,7 +656,7 @@ export default function CalidadForm() {
           onFormulaChange={setFormula}
           onMetaChange={setMeta}
           onObservatorioChange={setObservatorio}
-          sectionSubtitle="Datos generales de la Resolución 256"
+          sectionSubtitle="Formulario de Indicadores"
         />
 
         <StatusMessage

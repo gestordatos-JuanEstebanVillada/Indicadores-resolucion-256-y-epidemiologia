@@ -53,7 +53,7 @@ export default function App() {
                 <div className="w-1/2 p-12">
                   <div className="max-w-md">
                     <h2 className="text-pink-600 font-semibold">
-                      Indicadores Calidad
+                      Aplicativo Indicadores
                     </h2>
                     <div className="mt-6">
                       <Login />

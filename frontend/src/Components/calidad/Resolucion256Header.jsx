@@ -22,7 +22,7 @@ export default function Resolucion256Header({
           </h2>
 
           <p className="text-sm text-gray-500 mt-1">
-            Registro de indicadores de calidad
+            Registro de indicadores
           </p>
         </div>
       </div>
